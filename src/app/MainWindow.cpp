@@ -17,6 +17,7 @@ MainWindow::MainWindow(GtkApplication* app)
 
     gtk_container_add(GTK_CONTAINER(window_), mainBox_);
     gtk_box_pack_start(GTK_BOX(mainBox_), tabBar_.widget(), TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(mainBox_), searchBar_.widget(), FALSE, FALSE, 0);
 
     autosave_.setTimerScheduler([this](uint32_t delayMs, std::function<void()> cb) {
         if (autosaveTimeoutId_ != 0) {
@@ -58,6 +59,7 @@ MainWindow::MainWindow(GtkApplication* app)
 
     setupShortcuts();
     setupDragAndDrop();
+    setupSearch();
     restoreSession();
 }
 
@@ -88,6 +90,13 @@ Document* MainWindow::openDocument(std::unique_ptr<Document> doc, std::string_vi
 
     const std::string lang = lexerManager_.detectLanguage(rawDoc->filePath());
     lexerManager_.applyLanguage(editor->adapter(), lang, true);
+
+    // Setup search highlight indicator
+    constexpr int kSearchIndicator = 8;
+    editor->adapter().send(SCI_INDICSETSTYLE, kSearchIndicator, INDIC_ROUNDBOX);
+    editor->adapter().send(SCI_INDICSETFORE, kSearchIndicator, 0x00D7FF); // Gold / orange
+    editor->adapter().send(SCI_INDICSETALPHA, kSearchIndicator, 100);
+    editor->adapter().send(SCI_INDICSETOUTLINEALPHA, kSearchIndicator, 180);
 
     editor->setModifiedChangedCallback([this, rawDoc](bool modified) {
         rawDoc->setModified(modified);
@@ -728,7 +737,172 @@ gboolean MainWindow::onKeyPress([[maybe_unused]] GtkWidget* widget, GdkEventKey*
         }
     }
 
+    // Ctrl+F -> Find
+    if ((state == GDK_CONTROL_MASK) && (event->keyval == GDK_KEY_f || event->keyval == GDK_KEY_F)) {
+        self->showFindBar(false);
+        return TRUE;
+    }
+
+    // Ctrl+H -> Replace
+    if ((state == GDK_CONTROL_MASK) && (event->keyval == GDK_KEY_h || event->keyval == GDK_KEY_H)) {
+        self->showFindBar(true);
+        return TRUE;
+    }
+
+    // F3 -> Find Next
+    if (event->keyval == GDK_KEY_F3) {
+        const bool backward = (state & GDK_SHIFT_MASK) != 0;
+        self->findNextOrPrev(self->searchBar_.currentOptions(), backward);
+        return TRUE;
+    }
+
+    // Esc -> Hide Find Bar
+    if (event->keyval == GDK_KEY_Escape && self->searchBar_.isVisible()) {
+        self->hideFindBar();
+        return TRUE;
+    }
+
     return FALSE;
+}
+
+void MainWindow::setupSearch() {
+    searchBar_.setFindCallback([this](const SearchOptions& opt, bool backward) {
+        findNextOrPrev(opt, backward);
+    });
+
+    searchBar_.setQueryChangedCallback([this](const SearchOptions& opt) {
+        highlightMatches(opt);
+    });
+
+    searchBar_.setReplaceCallback([this](const SearchOptions& opt) {
+        replaceCurrent(opt);
+    });
+
+    searchBar_.setReplaceAllCallback([this](const SearchOptions& opt) {
+        replaceAllMatches(opt);
+    });
+
+    searchBar_.setCloseCallback([this]() {
+        clearSearchHighlights();
+        if (auto* ed = activeEditor()) {
+            gtk_widget_grab_focus(ed->widget());
+        }
+    });
+}
+
+void MainWindow::showFindBar(bool replaceMode) {
+    searchBar_.show(replaceMode);
+}
+
+void MainWindow::hideFindBar() {
+    searchBar_.hide();
+}
+
+void MainWindow::clearSearchHighlights() {
+    auto* ed = activeEditor();
+    if (!ed) return;
+    const size_t len = ed->adapter().getLength();
+    constexpr int kSearchIndicator = 8;
+    ed->adapter().send(SCI_SETINDICATORCURRENT, kSearchIndicator);
+    ed->adapter().send(SCI_INDICATORCLEARRANGE, 0, len);
+}
+
+void MainWindow::highlightMatches(const SearchOptions& opt) {
+    auto* ed = activeEditor();
+    if (!ed) return;
+
+    clearSearchHighlights();
+
+    if (opt.query.empty()) {
+        searchBar_.setStatusText("");
+        return;
+    }
+
+    const std::string text = ed->adapter().getText();
+    auto matches = searchEngine_.findAll(text, opt);
+    if (matches.empty()) {
+        searchBar_.setStatusText("No matches found");
+        return;
+    }
+
+    constexpr int kSearchIndicator = 8;
+    ed->adapter().send(SCI_SETINDICATORCURRENT, kSearchIndicator);
+    for (const auto& m : matches) {
+        ed->adapter().send(SCI_INDICATORFILLRANGE, m.start, m.length());
+    }
+
+    searchBar_.setStatusText(std::to_string(matches.size()) + " matches");
+}
+
+void MainWindow::findNextOrPrev(const SearchOptions& opt, bool backward) {
+    auto* ed = activeEditor();
+    if (!ed || opt.query.empty()) return;
+
+    const std::string text = ed->adapter().getText();
+    const size_t curPos = static_cast<size_t>(ed->adapter().getCurrentPos());
+    const size_t anchor = static_cast<size_t>(ed->adapter().send(SCI_GETANCHOR));
+
+    SearchResult res;
+    if (backward) {
+        const size_t searchPos = std::min(curPos, anchor);
+        res = searchEngine_.findPrevious(text, searchPos, opt);
+    } else {
+        const size_t searchPos = std::max(curPos, anchor);
+        res = searchEngine_.findNext(text, searchPos, opt);
+    }
+
+    if (res.found) {
+        ed->adapter().send(SCI_SETSEL, res.startPos, res.endPos);
+        ed->adapter().send(SCI_SCROLLCARET);
+        searchBar_.setStatusText(res.statusText);
+    } else {
+        searchBar_.setStatusText(res.statusText);
+    }
+
+    highlightMatches(opt);
+}
+
+void MainWindow::replaceCurrent(const SearchOptions& opt) {
+    auto* ed = activeEditor();
+    if (!ed || opt.query.empty()) return;
+
+    const sptr_t selStart = ed->adapter().send(SCI_GETSELECTIONSTART);
+    const sptr_t selEnd = ed->adapter().send(SCI_GETSELECTIONEND);
+
+    if (selEnd > selStart) {
+        std::string text = ed->adapter().getText();
+        if (static_cast<size_t>(selEnd) <= text.size()) {
+            std::string selText = text.substr(selStart, selEnd - selStart);
+            RegexEngine re;
+            if (re.compile(opt.query, opt.caseSensitive, opt.wholeWord, opt.isRegex)) {
+                MatchResult m;
+                if (re.match(selText, 0, &m) && m.start == 0 && m.end == selText.size()) {
+                    std::string rep = re.expandReplacement(selText, m, opt.replacement);
+                    ed->adapter().send(SCI_SETTARGETSTART, selStart);
+                    ed->adapter().send(SCI_SETTARGETEND, selEnd);
+                    ed->adapter().send(SCI_REPLACETARGET, rep.size(), reinterpret_cast<sptr_t>(rep.c_str()));
+                    ed->adapter().send(SCI_SETSEL, selStart, selStart + rep.size());
+                }
+            }
+        }
+    }
+
+    findNextOrPrev(opt, false);
+}
+
+void MainWindow::replaceAllMatches(const SearchOptions& opt) {
+    auto* ed = activeEditor();
+    if (!ed || opt.query.empty()) return;
+
+    const std::string text = ed->adapter().getText();
+    auto [newText, count] = searchEngine_.replaceAll(text, opt);
+    if (count > 0) {
+        ed->adapter().setText(newText);
+        searchBar_.setStatusText("Replaced " + std::to_string(count) + " occurrences");
+        clearSearchHighlights();
+    } else {
+        searchBar_.setStatusText("No matches to replace");
+    }
 }
 
 gboolean MainWindow::onDeleteEvent([[maybe_unused]] GtkWidget* widget,

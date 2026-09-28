@@ -6,10 +6,12 @@
 #include "editor/Editor.h"
 #include "editor/EditorConfig.h"
 #include "platform/FileWatcher.h"
+#include "search/Search.h"
 #include "session/Autosave.h"
 #include "session/RecentlyClosed.h"
 #include "session/SessionManager.h"
 #include "syntax/LexerManager.h"
+#include "ui/SearchBar.h"
 #include "ui/TabBar.h"
 
 #include <memory>
@@ -51,6 +53,14 @@ public:
     void closeAllTabs();
     bool reopenClosedTab();
 
+    void showFindBar(bool replaceMode = false);
+    void hideFindBar();
+    void findNextOrPrev(const SearchOptions& opt, bool backward);
+    void highlightMatches(const SearchOptions& opt);
+    void replaceCurrent(const SearchOptions& opt);
+    void replaceAllMatches(const SearchOptions& opt);
+    void clearSearchHighlights();
+
     void saveCurrentSession();
     void restoreSession();
 
@@ -59,6 +69,7 @@ public:
 private:
     void setupShortcuts();
     void setupDragAndDrop();
+    void setupSearch();
     void updateWindowTitle();
     void saveDocumentToStore(const std::string& docId);
     bool promptToSaveIfModified(Document* doc);
@@ -74,6 +85,8 @@ private:
     GtkWidget* mainBox_{nullptr};
 
     TabBar tabBar_;
+    SearchBar searchBar_;
+    SearchEngine searchEngine_;
     DocumentManager docManager_;
     DocumentStore docStore_;
     RecentlyClosed recentlyClosed_;
