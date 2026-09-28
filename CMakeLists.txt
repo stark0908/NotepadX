@@ -50,6 +50,7 @@ set(NOTEPADX_SOURCES
     src/session/Autosave.cpp
     src/session/RecentlyClosed.cpp
     src/session/SessionManager.cpp
+    src/platform/FileWatcher.cpp
     src/ui/TabBar.cpp
 )
 
