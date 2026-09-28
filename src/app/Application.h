@@ -4,6 +4,7 @@
 #include "app/MainWindow.h"
 #include "ipc/SingleInstance.h"
 
+#include <chrono>
 #include <memory>
 #include <vector>
 #include <string>
@@ -20,6 +21,11 @@ public:
 
     int run(int argc, char* argv[]);
 
+    void setBenchmarkMode(bool bench, std::chrono::steady_clock::time_point start) noexcept {
+        benchMode_ = bench;
+        startTime_ = start;
+    }
+
     [[nodiscard]] MainWindow* mainWindow() const noexcept { return mainWindow_.get(); }
 
 private:
@@ -31,6 +37,8 @@ private:
     GtkApplication* app_{nullptr};
     std::unique_ptr<MainWindow> mainWindow_;
     SingleInstance singleInstance_;
+    bool benchMode_{false};
+    std::chrono::steady_clock::time_point startTime_{};
 };
 
 } // namespace notepadx

@@ -1,5 +1,8 @@
 #include "app/Application.h"
 
+#include <chrono>
+#include <iostream>
+
 namespace notepadx {
 
 Application::Application()
@@ -37,6 +40,16 @@ int Application::run(int argc, char* argv[]) {
 void Application::onActivate([[maybe_unused]] GtkApplication* app, gpointer userData) {
     auto* self = static_cast<Application*>(userData);
     self->ensureInitialized();
+
+    if (self->benchMode_) {
+        while (gtk_events_pending()) {
+            gtk_main_iteration();
+        }
+        const auto endTime = std::chrono::steady_clock::now();
+        const double ms = std::chrono::duration<double, std::milli>(endTime - self->startTime_).count();
+        std::cout << "Startup time: " << ms << " ms" << std::endl;
+        g_application_quit(G_APPLICATION(self->app_));
+    }
 }
 
 void Application::onOpen([[maybe_unused]] GtkApplication* app,
@@ -55,6 +68,16 @@ void Application::onOpen([[maybe_unused]] GtkApplication* app,
                 g_free(path);
             }
         }
+    }
+
+    if (self->benchMode_) {
+        while (gtk_events_pending()) {
+            gtk_main_iteration();
+        }
+        const auto endTime = std::chrono::steady_clock::now();
+        const double ms = std::chrono::duration<double, std::milli>(endTime - self->startTime_).count();
+        std::cout << "Startup time (with files): " << ms << " ms" << std::endl;
+        g_application_quit(G_APPLICATION(self->app_));
     }
 }
 
