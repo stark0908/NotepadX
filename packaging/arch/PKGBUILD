@@ -1,0 +1,27 @@
+# Maintainer: Stark <stark@localhost>
+pkgname=notepadx
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Fast, bloat-free text and code editor for Linux"
+arch=('x86_64')
+url="https://github.com/notepadx/notepadx"
+license=('GPL3')
+depends=('gtk3' 'pcre2')
+makedepends=('cmake' 'gcc' 'make' 'pkgconf')
+source=("$pkgname-$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cmake -B build -S "$pkgname-$pkgver" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr
+    cmake --build build -j$(nproc)
+}
+
+check() {
+    ctest --test-dir build --output-on-failure
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install build
+}

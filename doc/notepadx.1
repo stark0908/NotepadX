@@ -1,0 +1,84 @@
+.TH NOTEPADX 1 "September 2026" "0.1.0" "NotepadX Manual"
+.SH NAME
+notepadx \- fast, distraction-free text and code editor for Linux
+.SH SYNOPSIS
+.B notepadx
+[\fB\-\-new\-window\fR] [\fIFILE\fR...]
+.SH DESCRIPTION
+.B NotepadX
+is a fast, bloat-free Notepad++ alternative designed for Linux. It features single-instance IPC coordination via Unix domain sockets, instant multi-tab session restoration, atomic autosaving, syntax highlighting for 16+ languages via Lexilla, PCRE2 regex search and replace, bookmarks, and full keyboard shortcut ergonomics.
+.SH OPTIONS
+.TP
+\fB\-\-new\-window\fR
+Force open a new application window instead of passing file arguments to an existing running instance.
+.TP
+\fIFILE...\fR
+One or more files to open as tabs. If NotepadX is already running, these files are immediately forwarded to the primary window.
+.SH KEYBOARD SHORTCUTS
+.TP
+.B File Operations
+.br
+Ctrl+N: New tab
+.br
+Ctrl+O: Open file dialog
+.br
+Ctrl+S: Save file
+.br
+Ctrl+Shift+S: Save file as
+.br
+Ctrl+W: Close current tab
+.br
+Ctrl+Shift+T: Reopen last closed tab
+.br
+Ctrl+Q: Quit application
+.TP
+.B Navigation & Tabs
+.br
+Ctrl+Tab / Ctrl+Shift+Tab: Next / Previous tab
+.br
+Alt+1 .. Alt+9: Switch directly to tab 1 through 9
+.TP
+.B Search & Bookmarks
+.br
+Ctrl+F: Find
+.br
+Ctrl+H: Replace
+.br
+F3 / Shift+F3: Find next / previous
+.br
+Ctrl+G: Go to line dialog
+.br
+Ctrl+F2: Toggle bookmark on current line
+.br
+F2 / Shift+F2: Jump to next / previous bookmark
+.br
+Ctrl+Shift+F2: Clear all bookmarks
+.TP
+.B Editing & Line Ops
+.br
+Ctrl+Z / Ctrl+Y: Undo / Redo
+.br
+Ctrl+D: Duplicate line
+.br
+Ctrl+L: Delete line
+.br
+Alt+Up / Alt+Down: Move line up / down
+.br
+Alt+Z: Toggle word wrap
+.br
+Ctrl++ / Ctrl+\- / Ctrl+0: Zoom in / Zoom out / Reset zoom
+.SH FILES
+.TP
+.I ~/.config/NotepadX/settings.json
+User preferences (font, font size, tab width, line numbers, word wrap, dark/light theme, recent files).
+.TP
+.I ~/.local/share/NotepadX/session.json
+Saved session state containing open tabs, file paths, cursor positions, and scroll offsets.
+.TP
+.I ~/.local/share/NotepadX/unnamed_tabs/
+Atomic backing store for untitled, unsaved tabs.
+.TP
+.I $XDG_RUNTIME_DIR/notepadx.sock
+Unix domain socket used for single-instance IPC communication.
+.SH AUTHORS
+NotepadX Authors (GPLv3).

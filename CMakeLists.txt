@@ -154,3 +154,32 @@ add_dependencies(notepadx_tests scintilla_build lexilla_build)
 
 include(GoogleTest)
 gtest_discover_tests(notepadx_tests)
+
+# --- Installation & Packaging ---
+include(GNUInstallDirs)
+
+install(TARGETS notepadx
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(FILES data/notepadx.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+)
+
+install(FILES data/icons/hicolor/scalable/apps/notepadx.svg
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+)
+
+install(FILES doc/notepadx.1
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+)
+
+set(CPACK_PACKAGE_NAME "notepadx")
+set(CPACK_PACKAGE_VENDOR "NotepadX Authors")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Fast, bloat-free text and code editor for Linux")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_CONTACT "stark@localhost")
+set(CPACK_GENERATOR "TGZ;DEB;RPM")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgtk-3-0, libpcre2-8-0")
+set(CPACK_RPM_PACKAGE_REQUIRES "gtk3, pcre2")
+include(CPack)

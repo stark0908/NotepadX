@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E1E24"/>
+      <stop offset="100%" stop-color="#121216"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E676"/>
+      <stop offset="100%" stop-color="#00B0FF"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <!-- Background Card -->
+  <rect x="16" y="12" width="96" height="104" rx="14" fill="url(#bg)" stroke="#2D2D35" stroke-width="2" filter="url(#shadow)"/>
+  <!-- Top Accent Bar -->
+  <path d="M 16 26 C 16 18.268 22.268 12 30 12 L 98 12 C 105.732 12 112 18.268 112 26 L 112 30 L 16 30 Z" fill="url(#accent)"/>
+  <!-- Lines of Text -->
+  <line x1="32" y1="46" x2="76" y2="46" stroke="#4A4A58" stroke-width="4" stroke-linecap="round"/>
+  <line x1="32" y1="60" x2="64" y2="60" stroke="#4A4A58" stroke-width="4" stroke-linecap="round"/>
+  <line x1="32" y1="74" x2="80" y2="74" stroke="#4A4A58" stroke-width="4" stroke-linecap="round"/>
+  <!-- Stylized 'X' in Accent Gradient -->
+  <path d="M 68 84 L 96 112 M 96 84 L 68 112" stroke="url(#accent)" stroke-width="7" stroke-linecap="round"/>
+</svg>

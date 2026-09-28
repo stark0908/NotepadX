@@ -1,0 +1,18 @@
+[Desktop Entry]
+Name=NotepadX
+GenericName=Text Editor
+Comment=Fast, bloat-free text and code editor for Linux
+Exec=notepadx %F
+Icon=notepadx
+Terminal=false
+Type=Application
+Categories=Utility;TextEditor;Development;
+MimeType=text/plain;text/x-chdr;text/x-csrc;text/x-c++hdr;text/x-c++src;text/x-python;text/x-rust;text/markdown;application/json;application/xml;text/html;text/css;
+StartupNotify=true
+StartupWMClass=notepadx
+Keywords=Text;Editor;Plaintext;Code;Notepad++;
+Actions=NewWindow;
+
+[Desktop Action NewWindow]
+Name=New Window
+Exec=notepadx --new-window
