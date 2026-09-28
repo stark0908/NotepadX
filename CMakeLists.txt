@@ -14,7 +14,7 @@ pkg_check_modules(PCRE2 REQUIRED libpcre2-8)
 # --- Third-party paths ---
 set(SCINTILLA_DIR ${CMAKE_SOURCE_DIR}/third_party/scintilla)
 set(LEXILLA_DIR ${CMAKE_SOURCE_DIR}/third_party/lexilla)
-set(JSON_DIR ${CMAKE_SOURCE_DIR}/third_party/nlohmann)
+set(JSON_DIR ${CMAKE_SOURCE_DIR}/third_party)
 
 # --- Build Scintilla static library via its native makefile ---
 set(SCINTILLA_LIB ${SCINTILLA_DIR}/bin/scintilla.a)
@@ -43,9 +43,13 @@ set(NOTEPADX_SOURCES
     src/app/MainWindow.cpp
     src/document/Document.cpp
     src/document/DocumentManager.cpp
+    src/document/DocumentStore.cpp
     src/editor/Editor.cpp
     src/editor/EditorConfig.cpp
     src/editor/ScintillaAdapter.cpp
+    src/session/Autosave.cpp
+    src/session/RecentlyClosed.cpp
+    src/session/SessionManager.cpp
     src/ui/TabBar.cpp
 )
 
@@ -86,8 +90,13 @@ enable_testing()
 
 add_executable(notepadx_tests
     tests/test_document.cpp
+    tests/test_persistence.cpp
     src/document/Document.cpp
     src/document/DocumentManager.cpp
+    src/document/DocumentStore.cpp
+    src/session/Autosave.cpp
+    src/session/RecentlyClosed.cpp
+    src/session/SessionManager.cpp
 )
 
 target_include_directories(notepadx_tests PRIVATE
