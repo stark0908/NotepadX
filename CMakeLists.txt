@@ -41,9 +41,12 @@ set(NOTEPADX_SOURCES
     src/main.cpp
     src/app/Application.cpp
     src/app/MainWindow.cpp
+    src/document/Document.cpp
+    src/document/DocumentManager.cpp
     src/editor/Editor.cpp
     src/editor/EditorConfig.cpp
     src/editor/ScintillaAdapter.cpp
+    src/ui/TabBar.cpp
 )
 
 add_executable(notepadx ${NOTEPADX_SOURCES})
@@ -76,3 +79,30 @@ target_compile_options(notepadx PRIVATE
 )
 
 add_dependencies(notepadx scintilla_build lexilla_build)
+
+# --- Unit Testing ---
+find_package(GTest CONFIG REQUIRED)
+enable_testing()
+
+add_executable(notepadx_tests
+    tests/test_document.cpp
+    src/document/Document.cpp
+    src/document/DocumentManager.cpp
+)
+
+target_include_directories(notepadx_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${JSON_DIR}
+)
+
+target_link_libraries(notepadx_tests PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+)
+
+target_compile_options(notepadx_tests PRIVATE
+    -Wall -Wextra -Wpedantic
+)
+
+include(GoogleTest)
+gtest_discover_tests(notepadx_tests)
