@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gtk/gtk.h>
+#include "config/Settings.h"
 #include "document/DocumentManager.h"
 #include "document/DocumentStore.h"
 #include "editor/Editor.h"
@@ -11,7 +12,9 @@
 #include "session/RecentlyClosed.h"
 #include "session/SessionManager.h"
 #include "syntax/LexerManager.h"
+#include "ui/MenuBar.h"
 #include "ui/SearchBar.h"
+#include "ui/StatusBar.h"
 #include "ui/TabBar.h"
 
 #include <memory>
@@ -61,12 +64,35 @@ public:
     void replaceAllMatches(const SearchOptions& opt);
     void clearSearchHighlights();
 
+    void undo();
+    void redo();
+    void cut();
+    void copy();
+    void paste();
+    void selectAll();
+    void duplicateLine();
+    void deleteLine();
+    void moveLineUp();
+    void moveLineDown();
+
+    void toggleWordWrap();
+    void toggleLineNumbers();
+    void zoomIn();
+    void zoomOut();
+    void resetZoom();
+    void toggleTheme();
+    void setLanguage(const std::string& lang);
+    void goToLineDialog();
+    void showAboutDialog();
+    void updateStatusBar();
+
     void saveCurrentSession();
     void restoreSession();
 
     void show();
 
 private:
+    void setupMenuBar();
     void setupShortcuts();
     void setupDragAndDrop();
     void setupSearch();
@@ -84,8 +110,11 @@ private:
     GtkWidget* window_{nullptr};
     GtkWidget* mainBox_{nullptr};
 
+    Settings settings_;
+    std::unique_ptr<MenuBar> menuBar_;
     TabBar tabBar_;
     SearchBar searchBar_;
+    StatusBar statusBar_;
     SearchEngine searchEngine_;
     DocumentManager docManager_;
     DocumentStore docStore_;
@@ -94,7 +123,6 @@ private:
     guint autosaveTimeoutId_{0};
     FileWatcher fileWatcher_;
     LexerManager lexerManager_;
-    EditorConfig editorConfig_;
     std::unordered_map<std::string, std::unique_ptr<Editor>> editors_;
 };
 

@@ -10,14 +10,32 @@ namespace notepadx {
 MainWindow::MainWindow(GtkApplication* app)
     : window_(gtk_application_window_new(app)),
       mainBox_(gtk_box_new(GTK_ORIENTATION_VERTICAL, 0)),
-      autosave_([this](const std::string& docId) { saveDocumentToStore(docId); }, 2000),
-      editorConfig_(EditorConfig::createDefault()) {
+      autosave_([this](const std::string& docId) { saveDocumentToStore(docId); }, 2000) {
+    settings_.loadFromFile();
+    setupMenuBar();
+
     gtk_window_set_title(GTK_WINDOW(window_), "NotepadX");
     gtk_window_set_default_size(GTK_WINDOW(window_), 900, 600);
 
     gtk_container_add(GTK_CONTAINER(window_), mainBox_);
+    gtk_box_pack_start(GTK_BOX(mainBox_), menuBar_->widget(), FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(mainBox_), tabBar_.widget(), TRUE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(mainBox_), searchBar_.widget(), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(mainBox_), statusBar_.widget(), FALSE, FALSE, 0);
+
+    statusBar_.setLanguageClickedCallback([this]() {
+        menuBar_->showLanguageMenu();
+    });
+    statusBar_.setEolClickedCallback([this]() {
+        if (auto* ed = activeEditor()) {
+            const int cur = ed->config().eolMode;
+            const int next = (cur == 0) ? 2 : 0;
+            auto cfg = ed->config();
+            cfg.eolMode = next;
+            ed->applyConfig(cfg);
+            statusBar_.updateEol(next);
+        }
+    });
 
     autosave_.setTimerScheduler([this](uint32_t delayMs, std::function<void()> cb) {
         if (autosaveTimeoutId_ != 0) {
@@ -37,6 +55,7 @@ MainWindow::MainWindow(GtkApplication* app)
         if (doc) {
             docManager_.setActiveDocument(doc);
             updateWindowTitle();
+            updateStatusBar();
             if (auto* ed = activeEditor()) {
                 gtk_widget_grab_focus(ed->widget());
             }
@@ -82,14 +101,14 @@ Document* MainWindow::openDocument(std::unique_ptr<Document> doc, std::string_vi
 
     const std::string filePath = doc->filePath();
     Document* rawDoc = docManager_.addDocument(std::move(doc));
-    auto editor = std::make_unique<Editor>(editorConfig_);
+    auto editor = std::make_unique<Editor>(settings_.editorConfig());
 
     if (!content.empty()) {
         editor->adapter().setText(content);
     }
 
     const std::string lang = lexerManager_.detectLanguage(rawDoc->filePath());
-    lexerManager_.applyLanguage(editor->adapter(), lang, true);
+    lexerManager_.applyLanguage(editor->adapter(), lang, settings_.isDarkTheme());
 
     // Setup search highlight indicator
     constexpr int kSearchIndicator = 8;
@@ -106,6 +125,7 @@ Document* MainWindow::openDocument(std::unique_ptr<Document> doc, std::string_vi
         }
         if (docManager_.activeDocument() == rawDoc) {
             updateWindowTitle();
+            updateStatusBar();
         }
     });
 
@@ -113,6 +133,13 @@ Document* MainWindow::openDocument(std::unique_ptr<Document> doc, std::string_vi
         if (rawDoc->isUnnamed()) {
             autosave_.markDirty(rawDoc->id());
         }
+        if (docManager_.activeDocument() == rawDoc) {
+            updateStatusBar();
+        }
+    });
+
+    editor->setUpdateUiCallback([this]() {
+        updateStatusBar();
     });
 
     GtkWidget* edWidget = editor->widget();
@@ -749,6 +776,60 @@ gboolean MainWindow::onKeyPress([[maybe_unused]] GtkWidget* widget, GdkEventKey*
         return TRUE;
     }
 
+    // Ctrl+G -> Go to Line
+    if ((state == GDK_CONTROL_MASK) && (event->keyval == GDK_KEY_g || event->keyval == GDK_KEY_G)) {
+        self->goToLineDialog();
+        return TRUE;
+    }
+
+    // Ctrl+D -> Duplicate Line
+    if ((state == GDK_CONTROL_MASK) && (event->keyval == GDK_KEY_d || event->keyval == GDK_KEY_D)) {
+        self->duplicateLine();
+        return TRUE;
+    }
+
+    // Ctrl+L -> Delete Line
+    if ((state == GDK_CONTROL_MASK) && (event->keyval == GDK_KEY_l || event->keyval == GDK_KEY_L)) {
+        self->deleteLine();
+        return TRUE;
+    }
+
+    // Alt+Up -> Move Line Up
+    if ((state == GDK_MOD1_MASK) && (event->keyval == GDK_KEY_Up)) {
+        self->moveLineUp();
+        return TRUE;
+    }
+
+    // Alt+Down -> Move Line Down
+    if ((state == GDK_MOD1_MASK) && (event->keyval == GDK_KEY_Down)) {
+        self->moveLineDown();
+        return TRUE;
+    }
+
+    // Alt+Z -> Toggle Word Wrap
+    if ((state == GDK_MOD1_MASK) && (event->keyval == GDK_KEY_z || event->keyval == GDK_KEY_Z)) {
+        self->toggleWordWrap();
+        return TRUE;
+    }
+
+    // Ctrl++ / Ctrl+= -> Zoom In
+    if ((state == GDK_CONTROL_MASK) && (event->keyval == GDK_KEY_plus || event->keyval == GDK_KEY_equal || event->keyval == GDK_KEY_KP_Add)) {
+        self->zoomIn();
+        return TRUE;
+    }
+
+    // Ctrl+- -> Zoom Out
+    if ((state == GDK_CONTROL_MASK) && (event->keyval == GDK_KEY_minus || event->keyval == GDK_KEY_KP_Subtract)) {
+        self->zoomOut();
+        return TRUE;
+    }
+
+    // Ctrl+0 -> Reset Zoom
+    if ((state == GDK_CONTROL_MASK) && (event->keyval == GDK_KEY_0 || event->keyval == GDK_KEY_KP_0)) {
+        self->resetZoom();
+        return TRUE;
+    }
+
     // F3 -> Find Next
     if (event->keyval == GDK_KEY_F3) {
         const bool backward = (state & GDK_SHIFT_MASK) != 0;
@@ -905,12 +986,204 @@ void MainWindow::replaceAllMatches(const SearchOptions& opt) {
     }
 }
 
+void MainWindow::setupMenuBar() {
+    MenuBar::Callbacks cbs;
+    cbs.onNewTab = [this]() { newTab(); };
+    cbs.onOpenFile = [this]() { openFileDialog(); };
+    cbs.onSaveFile = [this]() { saveActiveDocument(); };
+    cbs.onSaveFileAs = [this]() { saveActiveDocumentAs(); };
+    cbs.onCloseTab = [this]() { closeActiveTab(); };
+    cbs.onReopenTab = [this]() { reopenClosedTab(); };
+    cbs.onQuit = [this]() { gtk_window_close(GTK_WINDOW(window_)); };
+
+    cbs.onUndo = [this]() { undo(); };
+    cbs.onRedo = [this]() { redo(); };
+    cbs.onCut = [this]() { cut(); };
+    cbs.onCopy = [this]() { copy(); };
+    cbs.onPaste = [this]() { paste(); };
+    cbs.onSelectAll = [this]() { selectAll(); };
+    cbs.onDuplicateLine = [this]() { duplicateLine(); };
+    cbs.onDeleteLine = [this]() { deleteLine(); };
+    cbs.onMoveLineUp = [this]() { moveLineUp(); };
+    cbs.onMoveLineDown = [this]() { moveLineDown(); };
+
+    cbs.onFind = [this]() { showFindBar(false); };
+    cbs.onReplace = [this]() { showFindBar(true); };
+    cbs.onFindNext = [this]() { findNextOrPrev(searchBar_.currentOptions(), false); };
+    cbs.onFindPrev = [this]() { findNextOrPrev(searchBar_.currentOptions(), true); };
+    cbs.onGoToLine = [this]() { goToLineDialog(); };
+
+    cbs.onToggleWordWrap = [this]() { toggleWordWrap(); };
+    cbs.onToggleLineNumbers = [this]() { toggleLineNumbers(); };
+    cbs.onZoomIn = [this]() { zoomIn(); };
+    cbs.onZoomOut = [this]() { zoomOut(); };
+    cbs.onResetZoom = [this]() { resetZoom(); };
+    cbs.onToggleTheme = [this]() { toggleTheme(); };
+
+    cbs.onSelectLanguage = [this](const std::string& lang) { setLanguage(lang); };
+    cbs.onAbout = [this]() { showAboutDialog(); };
+
+    menuBar_ = std::make_unique<MenuBar>(lexerManager_.availableLanguages(), std::move(cbs));
+}
+
+void MainWindow::undo() {
+    if (auto* ed = activeEditor()) ed->adapter().undo();
+}
+
+void MainWindow::redo() {
+    if (auto* ed = activeEditor()) ed->adapter().redo();
+}
+
+void MainWindow::cut() {
+    if (auto* ed = activeEditor()) ed->adapter().send(SCI_CUT);
+}
+
+void MainWindow::copy() {
+    if (auto* ed = activeEditor()) ed->adapter().send(SCI_COPY);
+}
+
+void MainWindow::paste() {
+    if (auto* ed = activeEditor()) ed->adapter().send(SCI_PASTE);
+}
+
+void MainWindow::selectAll() {
+    if (auto* ed = activeEditor()) ed->adapter().send(SCI_SELECTALL);
+}
+
+void MainWindow::duplicateLine() {
+    if (auto* ed = activeEditor()) ed->adapter().send(SCI_LINEDUPLICATE);
+}
+
+void MainWindow::deleteLine() {
+    if (auto* ed = activeEditor()) ed->adapter().send(SCI_LINECUT);
+}
+
+void MainWindow::moveLineUp() {
+    if (auto* ed = activeEditor()) ed->adapter().send(SCI_MOVESELECTEDLINESUP);
+}
+
+void MainWindow::moveLineDown() {
+    if (auto* ed = activeEditor()) ed->adapter().send(SCI_MOVESELECTEDLINESDOWN);
+}
+
+void MainWindow::toggleWordWrap() {
+    settings_.setWordWrap(!settings_.wordWrap());
+    for (auto& [id, ed] : editors_) {
+        ed->adapter().setWordWrap(settings_.wordWrap());
+    }
+}
+
+void MainWindow::toggleLineNumbers() {
+    settings_.setShowLineNumbers(!settings_.showLineNumbers());
+    for (auto& [id, ed] : editors_) {
+        ed->adapter().setLineNumbers(settings_.showLineNumbers());
+    }
+}
+
+void MainWindow::zoomIn() {
+    if (auto* ed = activeEditor()) ed->adapter().send(SCI_ZOOMIN);
+}
+
+void MainWindow::zoomOut() {
+    if (auto* ed = activeEditor()) ed->adapter().send(SCI_ZOOMOUT);
+}
+
+void MainWindow::resetZoom() {
+    if (auto* ed = activeEditor()) ed->adapter().send(SCI_SETZOOM, 0);
+}
+
+void MainWindow::toggleTheme() {
+    settings_.setTheme(settings_.isDarkTheme() ? "light" : "dark");
+    for (auto& [id, ed] : editors_) {
+        Document* doc = docManager_.findById(id);
+        const std::string lang = doc ? lexerManager_.detectLanguage(doc->filePath()) : "Plain Text";
+        lexerManager_.applyLanguage(ed->adapter(), lang, settings_.isDarkTheme());
+    }
+}
+
+void MainWindow::setLanguage(const std::string& lang) {
+    if (auto* ed = activeEditor()) {
+        lexerManager_.applyLanguage(ed->adapter(), lang, settings_.isDarkTheme());
+        statusBar_.updateLanguage(lang);
+    }
+}
+
+void MainWindow::goToLineDialog() {
+    auto* ed = activeEditor();
+    if (!ed) return;
+
+    const sptr_t lineCount = ed->adapter().send(SCI_GETLINECOUNT);
+    GtkWidget* dialog = gtk_dialog_new_with_buttons(
+        "Go to Line",
+        GTK_WINDOW(window_),
+        static_cast<GtkDialogFlags>(GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT),
+        "_Cancel", GTK_RESPONSE_CANCEL,
+        "_Go", GTK_RESPONSE_OK,
+        nullptr
+    );
+
+    GtkWidget* content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    GtkWidget* hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_container_set_border_width(GTK_CONTAINER(hbox), 12);
+    gtk_box_pack_start(GTK_BOX(hbox), gtk_label_new("Line number:"), FALSE, FALSE, 0);
+
+    const sptr_t curLine = ed->adapter().send(SCI_LINEFROMPOSITION, ed->adapter().getCurrentPos()) + 1;
+    GtkWidget* spin = gtk_spin_button_new_with_range(1, std::max<double>(1, lineCount), 1);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), curLine);
+    gtk_box_pack_start(GTK_BOX(hbox), spin, TRUE, TRUE, 0);
+    gtk_container_add(GTK_CONTAINER(content), hbox);
+    gtk_widget_show_all(dialog);
+
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+        const int target = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spin));
+        ed->adapter().send(SCI_GOTOLINE, target - 1);
+        ed->adapter().send(SCI_SCROLLCARET);
+    }
+    gtk_widget_destroy(dialog);
+}
+
+void MainWindow::showAboutDialog() {
+    GtkWidget* about = gtk_about_dialog_new();
+    gtk_about_dialog_set_program_name(GTK_ABOUT_DIALOG(about), "NotepadX");
+    gtk_about_dialog_set_version(GTK_ABOUT_DIALOG(about), "0.1.0");
+    gtk_about_dialog_set_comments(GTK_ABOUT_DIALOG(about), "Fast, distraction-free Notepad++ alternative for Linux");
+    gtk_about_dialog_set_license_type(GTK_ABOUT_DIALOG(about), GTK_LICENSE_GPL_3_0);
+    gtk_about_dialog_set_copyright(GTK_ABOUT_DIALOG(about), "© 2026 NotepadX Authors");
+    gtk_dialog_run(GTK_DIALOG(about));
+    gtk_widget_destroy(about);
+}
+
+void MainWindow::updateStatusBar() {
+    auto* ed = activeEditor();
+    if (!ed) return;
+
+    const sptr_t pos = ed->adapter().getCurrentPos();
+    const sptr_t line = ed->adapter().send(SCI_LINEFROMPOSITION, pos);
+    const sptr_t lineStart = ed->adapter().send(SCI_POSITIONFROMLINE, line);
+    const sptr_t col = pos - lineStart + 1;
+    const sptr_t selStart = ed->adapter().send(SCI_GETSELECTIONSTART);
+    const sptr_t selEnd = ed->adapter().send(SCI_GETSELECTIONEND);
+    const size_t len = ed->adapter().getLength();
+    const sptr_t lineCount = ed->adapter().send(SCI_GETLINECOUNT);
+
+    statusBar_.updateCursor(static_cast<int>(line + 1), static_cast<int>(col));
+    statusBar_.updateSelection(static_cast<int>(std::abs(selEnd - selStart)));
+    statusBar_.updateDocStats(static_cast<int>(lineCount), len);
+    statusBar_.updateEol(ed->config().eolMode);
+
+    Document* doc = activeDocument();
+    if (doc) {
+        statusBar_.updateLanguage(lexerManager_.detectLanguage(doc->filePath()));
+    }
+}
+
 gboolean MainWindow::onDeleteEvent([[maybe_unused]] GtkWidget* widget,
                                   [[maybe_unused]] GdkEvent* event,
                                   gpointer userData) {
     auto* self = static_cast<MainWindow*>(userData);
     if (self) {
         self->saveCurrentSession();
+        self->settings_.saveToFile();
     }
     return FALSE; // Allow default window destroy
 }

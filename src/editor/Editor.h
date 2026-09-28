@@ -12,6 +12,7 @@ class Editor {
 public:
     using ContentChangedCallback = std::function<void()>;
     using ModifiedChangedCallback = std::function<void(bool modified)>;
+    using UpdateUiCallback = std::function<void()>;
 
     explicit Editor(const EditorConfig& config = EditorConfig::createDefault());
     ~Editor() = default;
@@ -34,6 +35,7 @@ public:
 
     void setContentChangedCallback(ContentChangedCallback cb);
     void setModifiedChangedCallback(ModifiedChangedCallback cb);
+    void setUpdateUiCallback(UpdateUiCallback cb);
 
 private:
     void handleNotification(const SCNotification* scn);
@@ -42,6 +44,7 @@ private:
     EditorConfig config_;
     ContentChangedCallback contentChangedCb_{nullptr};
     ModifiedChangedCallback modifiedChangedCb_{nullptr};
+    UpdateUiCallback updateUiCb_{nullptr};
     bool isModified_{false};
 };
 

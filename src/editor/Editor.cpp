@@ -40,6 +40,10 @@ void Editor::setModifiedChangedCallback(ModifiedChangedCallback cb) {
     modifiedChangedCb_ = std::move(cb);
 }
 
+void Editor::setUpdateUiCallback(UpdateUiCallback cb) {
+    updateUiCb_ = std::move(cb);
+}
+
 void Editor::handleNotification(const SCNotification* scn) {
     if (!scn) {
         return;
@@ -63,6 +67,11 @@ void Editor::handleNotification(const SCNotification* scn) {
                 if (contentChangedCb_) {
                     contentChangedCb_();
                 }
+            }
+            break;
+        case SCN_UPDATEUI:
+            if (updateUiCb_) {
+                updateUiCb_();
             }
             break;
         default:

@@ -41,6 +41,7 @@ set(NOTEPADX_SOURCES
     src/main.cpp
     src/app/Application.cpp
     src/app/MainWindow.cpp
+    src/config/Settings.cpp
     src/document/Document.cpp
     src/document/DocumentManager.cpp
     src/document/DocumentStore.cpp
@@ -54,7 +55,9 @@ set(NOTEPADX_SOURCES
     src/search/Regex.cpp
     src/search/Search.cpp
     src/syntax/LexerManager.cpp
+    src/ui/MenuBar.cpp
     src/ui/SearchBar.cpp
+    src/ui/StatusBar.cpp
     src/ui/TabBar.cpp
 )
 
@@ -98,9 +101,12 @@ add_executable(notepadx_tests
     tests/test_persistence.cpp
     tests/test_syntax.cpp
     tests/test_search.cpp
+    tests/test_settings.cpp
+    src/config/Settings.cpp
     src/document/Document.cpp
     src/document/DocumentManager.cpp
     src/document/DocumentStore.cpp
+    src/editor/EditorConfig.cpp
     src/editor/ScintillaAdapter.cpp
     src/search/Regex.cpp
     src/search/Search.cpp
