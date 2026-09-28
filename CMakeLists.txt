@@ -51,7 +51,10 @@ set(NOTEPADX_SOURCES
     src/session/RecentlyClosed.cpp
     src/session/SessionManager.cpp
     src/platform/FileWatcher.cpp
+    src/search/Regex.cpp
+    src/search/Search.cpp
     src/syntax/LexerManager.cpp
+    src/ui/SearchBar.cpp
     src/ui/TabBar.cpp
 )
 
@@ -94,10 +97,13 @@ add_executable(notepadx_tests
     tests/test_document.cpp
     tests/test_persistence.cpp
     tests/test_syntax.cpp
+    tests/test_search.cpp
     src/document/Document.cpp
     src/document/DocumentManager.cpp
     src/document/DocumentStore.cpp
     src/editor/ScintillaAdapter.cpp
+    src/search/Regex.cpp
+    src/search/Search.cpp
     src/session/Autosave.cpp
     src/session/RecentlyClosed.cpp
     src/session/SessionManager.cpp
@@ -120,6 +126,7 @@ target_link_libraries(notepadx_tests PRIVATE
     ${SCINTILLA_LIB}
     ${LEXILLA_LIB}
     ${GTK3_LIBRARIES}
+    ${PCRE2_LIBRARIES}
 )
 
 target_link_directories(notepadx_tests PRIVATE
