@@ -5,6 +5,7 @@
 #include "document/DocumentStore.h"
 #include "editor/Editor.h"
 #include "editor/EditorConfig.h"
+#include "platform/FileWatcher.h"
 #include "session/Autosave.h"
 #include "session/RecentlyClosed.h"
 #include "session/SessionManager.h"
@@ -33,6 +34,13 @@ public:
 
     Document* newTab();
     Document* openDocument(std::unique_ptr<Document> doc, std::string_view content);
+    Document* openFile(const std::string& filePath);
+    bool openFileDialog();
+
+    bool saveActiveDocument();
+    bool saveActiveDocumentAs();
+    bool saveDocument(Document* doc, const std::string& targetPath);
+
     bool closeTab(int pageIndex);
     bool closeActiveTab();
     void nextTab();
@@ -49,11 +57,17 @@ public:
 
 private:
     void setupShortcuts();
+    void setupDragAndDrop();
     void updateWindowTitle();
     void saveDocumentToStore(const std::string& docId);
+    bool promptToSaveIfModified(Document* doc);
+    void onExternalFileChanged(const std::string& path);
 
     static gboolean onKeyPress(GtkWidget* widget, GdkEventKey* event, gpointer userData);
     static gboolean onDeleteEvent(GtkWidget* widget, GdkEvent* event, gpointer userData);
+    static void onDragDataReceived(GtkWidget* widget, GdkDragContext* context,
+                                  gint x, gint y, GtkSelectionData* data,
+                                  guint info, guint time, gpointer userData);
 
     GtkWidget* window_{nullptr};
     GtkWidget* mainBox_{nullptr};
@@ -64,6 +78,7 @@ private:
     RecentlyClosed recentlyClosed_;
     Autosave autosave_;
     guint autosaveTimeoutId_{0};
+    FileWatcher fileWatcher_;
     EditorConfig editorConfig_;
     std::unordered_map<std::string, std::unique_ptr<Editor>> editors_;
 };

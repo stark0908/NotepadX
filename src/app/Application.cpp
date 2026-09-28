@@ -27,8 +27,8 @@ void Application::onActivate([[maybe_unused]] GtkApplication* app, gpointer user
 }
 
 void Application::onOpen([[maybe_unused]] GtkApplication* app,
-                       [[maybe_unused]] GFile** files,
-                       [[maybe_unused]] gint nFiles,
+                       GFile** files,
+                       gint nFiles,
                        [[maybe_unused]] const gchar* hint,
                        gpointer userData) {
     auto* self = static_cast<Application*>(userData);
@@ -36,7 +36,16 @@ void Application::onOpen([[maybe_unused]] GtkApplication* app,
         self->mainWindow_ = std::make_unique<MainWindow>(self->app_);
     }
     self->mainWindow_->show();
-    // File loading will be wired in Phase 4
+
+    if (files && nFiles > 0) {
+        for (gint i = 0; i < nFiles; ++i) {
+            char* path = g_file_get_path(files[i]);
+            if (path) {
+                self->mainWindow_->openFile(path);
+                g_free(path);
+            }
+        }
+    }
 }
 
 } // namespace notepadx
