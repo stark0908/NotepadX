@@ -51,6 +51,7 @@ set(NOTEPADX_SOURCES
     src/session/RecentlyClosed.cpp
     src/session/SessionManager.cpp
     src/platform/FileWatcher.cpp
+    src/syntax/LexerManager.cpp
     src/ui/TabBar.cpp
 )
 
@@ -92,27 +93,45 @@ enable_testing()
 add_executable(notepadx_tests
     tests/test_document.cpp
     tests/test_persistence.cpp
+    tests/test_syntax.cpp
     src/document/Document.cpp
     src/document/DocumentManager.cpp
     src/document/DocumentStore.cpp
+    src/editor/ScintillaAdapter.cpp
     src/session/Autosave.cpp
     src/session/RecentlyClosed.cpp
     src/session/SessionManager.cpp
+    src/syntax/LexerManager.cpp
 )
 
 target_include_directories(notepadx_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${JSON_DIR}
+    ${GTK3_INCLUDE_DIRS}
+    ${SCINTILLA_DIR}/include
+    ${LEXILLA_DIR}/include
 )
+
+target_compile_definitions(notepadx_tests PRIVATE GTK)
 
 target_link_libraries(notepadx_tests PRIVATE
     GTest::gtest
     GTest::gtest_main
+    ${SCINTILLA_LIB}
+    ${LEXILLA_LIB}
+    ${GTK3_LIBRARIES}
+)
+
+target_link_directories(notepadx_tests PRIVATE
+    ${GTK3_LIBRARY_DIRS}
 )
 
 target_compile_options(notepadx_tests PRIVATE
     -Wall -Wextra -Wpedantic
+    ${GTK3_CFLAGS_OTHER}
 )
+
+add_dependencies(notepadx_tests scintilla_build lexilla_build)
 
 include(GoogleTest)
 gtest_discover_tests(notepadx_tests)
