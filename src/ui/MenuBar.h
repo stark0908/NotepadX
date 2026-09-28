@@ -14,6 +14,8 @@ public:
         std::function<void()> onOpenFile;
         std::function<void()> onSaveFile;
         std::function<void()> onSaveFileAs;
+        std::function<void(const std::string& path)> onOpenRecentFile;
+        std::function<void()> onClearRecentFiles;
         std::function<void()> onCloseTab;
         std::function<void()> onReopenTab;
         std::function<void()> onQuit;
@@ -34,6 +36,10 @@ public:
         std::function<void()> onFindNext;
         std::function<void()> onFindPrev;
         std::function<void()> onGoToLine;
+        std::function<void()> onToggleBookmark;
+        std::function<void()> onNextBookmark;
+        std::function<void()> onPrevBookmark;
+        std::function<void()> onClearAllBookmarks;
 
         std::function<void()> onToggleWordWrap;
         std::function<void()> onToggleLineNumbers;
@@ -54,12 +60,14 @@ public:
 
     [[nodiscard]] GtkWidget* widget() const noexcept { return menuBar_; }
     void showLanguageMenu(GdkEventButton* event = nullptr);
+    void updateRecentFiles(const std::vector<std::string>& files);
 
 private:
     void buildMenus(const std::vector<std::string>& languages);
 
     GtkWidget* menuBar_{nullptr};
     GtkWidget* languageMenu_{nullptr};
+    GtkWidget* recentFilesMenu_{nullptr};
     Callbacks cbs_;
 };
 

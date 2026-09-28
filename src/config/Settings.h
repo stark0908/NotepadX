@@ -43,6 +43,10 @@ public:
     void setTheme(std::string theme) { theme_ = std::move(theme); }
     [[nodiscard]] bool isDarkTheme() const noexcept { return theme_ == "dark"; }
 
+    [[nodiscard]] const std::vector<std::string>& recentFiles() const noexcept { return recentFiles_; }
+    void addRecentFile(const std::string& path);
+    void clearRecentFiles() noexcept { recentFiles_.clear(); }
+
     [[nodiscard]] const EditorConfig& editorConfig() const noexcept { return config_; }
 
     bool saveToFile(const std::filesystem::path& filePath = defaultSettingsFile()) const;
@@ -53,6 +57,7 @@ public:
 private:
     EditorConfig config_;
     std::string theme_{"dark"}; // "dark" or "light"
+    std::vector<std::string> recentFiles_;
 };
 
 } // namespace notepadx

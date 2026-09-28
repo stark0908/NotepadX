@@ -1,6 +1,7 @@
 #include "app/MainWindow.h"
 
 #include <gdk/gdkkeysyms.h>
+#include "platform/Encoding.h"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -33,6 +34,7 @@ MainWindow::MainWindow(GtkApplication* app)
             auto cfg = ed->config();
             cfg.eolMode = next;
             ed->applyConfig(cfg);
+            ed->adapter().send(SCI_CONVERTEOLS, next);
             statusBar_.updateEol(next);
         }
     });
@@ -142,6 +144,12 @@ Document* MainWindow::openDocument(std::unique_ptr<Document> doc, std::string_vi
         updateStatusBar();
     });
 
+    editor->setMarginClickCallback([this](int line, int margin) {
+        if (margin == 1) {
+            toggleBookmark(line);
+        }
+    });
+
     GtkWidget* edWidget = editor->widget();
     const std::string docId = rawDoc->id();
     editors_[docId] = std::move(editor);
@@ -181,7 +189,16 @@ Document* MainWindow::openFile(const std::string& filePath) {
 
     std::ostringstream ss;
     ss << in.rdbuf();
-    std::string content = ss.str();
+    const std::string rawData = ss.str();
+
+    const auto detected = Encoding::detect(rawData);
+    const std::string content = Encoding::toUtf8(rawData, detected.type);
+
+    settings_.addRecentFile(targetPath);
+    settings_.saveToFile();
+    if (menuBar_) {
+        menuBar_->updateRecentFiles(settings_.recentFiles());
+    }
 
     // If current tab is unnamed, empty, and unmodified -> reuse it
     Document* current = activeDocument();
@@ -189,15 +206,17 @@ Document* MainWindow::openFile(const std::string& filePath) {
         auto it = editors_.find(current->id());
         if (it != editors_.end() && it->second->adapter().getLength() == 0) {
             current->setFilePath(targetPath);
+            current->setEncoding(detected.name);
             it->second->adapter().setText(content);
             it->second->setSavePoint();
             const std::string lang = lexerManager_.detectLanguage(targetPath);
-            lexerManager_.applyLanguage(it->second->adapter(), lang, true);
+            lexerManager_.applyLanguage(it->second->adapter(), lang, settings_.isDarkTheme());
             const int idx = tabBar_.indexOfDocument(current);
             if (idx >= 0) {
                 tabBar_.updateTabTitle(idx);
             }
             updateWindowTitle();
+            updateStatusBar();
             fileWatcher_.watch(targetPath, [this](const std::string& p) {
                 onExternalFileChanged(p);
             });
@@ -206,6 +225,7 @@ Document* MainWindow::openFile(const std::string& filePath) {
     }
 
     auto doc = std::make_unique<Document>("", "", targetPath);
+    doc->setEncoding(detected.name);
     return openDocument(std::move(doc), content);
 }
 
@@ -290,6 +310,14 @@ bool MainWindow::saveDocument(Document* doc, const std::string& targetPath) {
     const std::string content = it->second->adapter().getText();
     const std::string oldPath = doc->filePath();
 
+    EncodingType encType = EncodingType::Utf8;
+    if (doc->encoding() == "UTF-8 BOM") encType = EncodingType::Utf8Bom;
+    else if (doc->encoding() == "ISO-8859-1") encType = EncodingType::Latin1;
+    else if (doc->encoding() == "UTF-16 LE") encType = EncodingType::Utf16Le;
+    else if (doc->encoding() == "UTF-16 BE") encType = EncodingType::Utf16Be;
+
+    const std::string encoded = Encoding::fromUtf8(content, encType);
+
     fileWatcher_.ignoreNextChange(targetPath);
 
     const auto tmpPath = targetPath + ".tmp";
@@ -298,7 +326,7 @@ bool MainWindow::saveDocument(Document* doc, const std::string& targetPath) {
         if (!out.is_open()) {
             return false;
         }
-        out.write(content.data(), static_cast<std::streamsize>(content.size()));
+        out.write(encoded.data(), static_cast<std::streamsize>(encoded.size()));
         out.flush();
         if (!out.good()) {
             return false;
@@ -310,6 +338,12 @@ bool MainWindow::saveDocument(Document* doc, const std::string& targetPath) {
     if (ec) {
         std::filesystem::remove(tmpPath, ec);
         return false;
+    }
+
+    settings_.addRecentFile(targetPath);
+    settings_.saveToFile();
+    if (menuBar_) {
+        menuBar_->updateRecentFiles(settings_.recentFiles());
     }
 
     if (doc->isUnnamed()) {
@@ -325,13 +359,14 @@ bool MainWindow::saveDocument(Document* doc, const std::string& targetPath) {
     it->second->setSavePoint();
 
     const std::string lang = lexerManager_.detectLanguage(targetPath);
-    lexerManager_.applyLanguage(it->second->adapter(), lang, true);
+    lexerManager_.applyLanguage(it->second->adapter(), lang, settings_.isDarkTheme());
 
     const int idx = tabBar_.indexOfDocument(doc);
     if (idx >= 0) {
         tabBar_.updateTabTitle(idx);
     }
     updateWindowTitle();
+    updateStatusBar();
 
     fileWatcher_.watch(targetPath, [this](const std::string& p) {
         onExternalFileChanged(p);
@@ -837,6 +872,30 @@ gboolean MainWindow::onKeyPress([[maybe_unused]] GtkWidget* widget, GdkEventKey*
         return TRUE;
     }
 
+    // Ctrl+Shift+F2 -> Clear All Bookmarks
+    if ((state == (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) && event->keyval == GDK_KEY_F2) {
+        self->clearAllBookmarks();
+        return TRUE;
+    }
+
+    // Ctrl+F2 -> Toggle Bookmark
+    if ((state == GDK_CONTROL_MASK) && event->keyval == GDK_KEY_F2) {
+        self->toggleBookmark();
+        return TRUE;
+    }
+
+    // Shift+F2 -> Previous Bookmark
+    if ((state == GDK_SHIFT_MASK) && event->keyval == GDK_KEY_F2) {
+        self->prevBookmark();
+        return TRUE;
+    }
+
+    // F2 -> Next Bookmark
+    if (state == 0 && event->keyval == GDK_KEY_F2) {
+        self->nextBookmark();
+        return TRUE;
+    }
+
     // Esc -> Hide Find Bar
     if (event->keyval == GDK_KEY_Escape && self->searchBar_.isVisible()) {
         self->hideFindBar();
@@ -992,6 +1051,12 @@ void MainWindow::setupMenuBar() {
     cbs.onOpenFile = [this]() { openFileDialog(); };
     cbs.onSaveFile = [this]() { saveActiveDocument(); };
     cbs.onSaveFileAs = [this]() { saveActiveDocumentAs(); };
+    cbs.onOpenRecentFile = [this](const std::string& path) { openFile(path); };
+    cbs.onClearRecentFiles = [this]() {
+        settings_.clearRecentFiles();
+        settings_.saveToFile();
+        menuBar_->updateRecentFiles({});
+    };
     cbs.onCloseTab = [this]() { closeActiveTab(); };
     cbs.onReopenTab = [this]() { reopenClosedTab(); };
     cbs.onQuit = [this]() { gtk_window_close(GTK_WINDOW(window_)); };
@@ -1012,6 +1077,10 @@ void MainWindow::setupMenuBar() {
     cbs.onFindNext = [this]() { findNextOrPrev(searchBar_.currentOptions(), false); };
     cbs.onFindPrev = [this]() { findNextOrPrev(searchBar_.currentOptions(), true); };
     cbs.onGoToLine = [this]() { goToLineDialog(); };
+    cbs.onToggleBookmark = [this]() { toggleBookmark(); };
+    cbs.onNextBookmark = [this]() { nextBookmark(); };
+    cbs.onPrevBookmark = [this]() { prevBookmark(); };
+    cbs.onClearAllBookmarks = [this]() { clearAllBookmarks(); };
 
     cbs.onToggleWordWrap = [this]() { toggleWordWrap(); };
     cbs.onToggleLineNumbers = [this]() { toggleLineNumbers(); };
@@ -1024,6 +1093,7 @@ void MainWindow::setupMenuBar() {
     cbs.onAbout = [this]() { showAboutDialog(); };
 
     menuBar_ = std::make_unique<MenuBar>(lexerManager_.availableLanguages(), std::move(cbs));
+    menuBar_->updateRecentFiles(settings_.recentFiles());
 }
 
 void MainWindow::undo() {
@@ -1174,6 +1244,66 @@ void MainWindow::updateStatusBar() {
     Document* doc = activeDocument();
     if (doc) {
         statusBar_.updateLanguage(lexerManager_.detectLanguage(doc->filePath()));
+        statusBar_.updateEncoding(doc->encoding());
+    } else {
+        statusBar_.updateEncoding("UTF-8");
+    }
+}
+
+void MainWindow::toggleBookmark(int targetLine) {
+    auto* ed = activeEditor();
+    if (!ed) return;
+
+    const sptr_t line = (targetLine >= 0) ? targetLine
+        : ed->adapter().send(SCI_LINEFROMPOSITION, ed->adapter().getCurrentPos());
+    const sptr_t state = ed->adapter().send(SCI_MARKERGET, line);
+    constexpr int kMarkerMask = (1 << 1);
+
+    if (state & kMarkerMask) {
+        ed->adapter().send(SCI_MARKERDELETE, line, 1);
+    } else {
+        ed->adapter().send(SCI_MARKERADD, line, 1);
+    }
+}
+
+void MainWindow::nextBookmark() {
+    auto* ed = activeEditor();
+    if (!ed) return;
+
+    constexpr int kMarkerMask = (1 << 1);
+    const sptr_t curLine = ed->adapter().send(SCI_LINEFROMPOSITION, ed->adapter().getCurrentPos());
+    sptr_t nextLine = ed->adapter().send(SCI_MARKERNEXT, curLine + 1, kMarkerMask);
+    if (nextLine == -1) {
+        nextLine = ed->adapter().send(SCI_MARKERNEXT, 0, kMarkerMask);
+    }
+
+    if (nextLine != -1) {
+        ed->adapter().send(SCI_GOTOLINE, nextLine);
+        ed->adapter().send(SCI_SCROLLCARET);
+    }
+}
+
+void MainWindow::prevBookmark() {
+    auto* ed = activeEditor();
+    if (!ed) return;
+
+    constexpr int kMarkerMask = (1 << 1);
+    const sptr_t curLine = ed->adapter().send(SCI_LINEFROMPOSITION, ed->adapter().getCurrentPos());
+    sptr_t prevLine = (curLine > 0) ? ed->adapter().send(SCI_MARKERPREVIOUS, curLine - 1, kMarkerMask) : -1;
+    if (prevLine == -1) {
+        const sptr_t totalLines = ed->adapter().send(SCI_GETLINECOUNT);
+        prevLine = ed->adapter().send(SCI_MARKERPREVIOUS, totalLines, kMarkerMask);
+    }
+
+    if (prevLine != -1) {
+        ed->adapter().send(SCI_GOTOLINE, prevLine);
+        ed->adapter().send(SCI_SCROLLCARET);
+    }
+}
+
+void MainWindow::clearAllBookmarks() {
+    if (auto* ed = activeEditor()) {
+        ed->adapter().send(SCI_MARKERDELETEALL, 1);
     }
 }
 

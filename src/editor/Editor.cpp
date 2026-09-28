@@ -44,6 +44,10 @@ void Editor::setUpdateUiCallback(UpdateUiCallback cb) {
     updateUiCb_ = std::move(cb);
 }
 
+void Editor::setMarginClickCallback(MarginClickCallback cb) {
+    marginClickCb_ = std::move(cb);
+}
+
 void Editor::handleNotification(const SCNotification* scn) {
     if (!scn) {
         return;
@@ -72,6 +76,11 @@ void Editor::handleNotification(const SCNotification* scn) {
         case SCN_UPDATEUI:
             if (updateUiCb_) {
                 updateUiCb_();
+            }
+            break;
+        case SCN_MARGINCLICK:
+            if (marginClickCb_) {
+                marginClickCb_(static_cast<int>(scn->line), scn->margin);
             }
             break;
         default:

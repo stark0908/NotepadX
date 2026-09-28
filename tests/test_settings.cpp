@@ -61,3 +61,30 @@ TEST_F(SettingsTest, SaveAndLoadRoundTrip) {
     EXPECT_EQ(s2.theme(), "light");
     EXPECT_FALSE(s2.isDarkTheme());
 }
+
+TEST_F(SettingsTest, RecentFilesManagement) {
+    Settings s;
+    for (int i = 1; i <= 15; ++i) {
+        s.addRecentFile("/path/to/file" + std::to_string(i) + ".txt");
+    }
+
+    // Limit is 10 items
+    EXPECT_EQ(s.recentFiles().size(), 10);
+    // Most recent is at front
+    EXPECT_EQ(s.recentFiles()[0], "/path/to/file15.txt");
+    EXPECT_EQ(s.recentFiles()[9], "/path/to/file6.txt");
+
+    // Adding existing file promotes it to front without duplicates
+    s.addRecentFile("/path/to/file10.txt");
+    EXPECT_EQ(s.recentFiles().size(), 10);
+    EXPECT_EQ(s.recentFiles()[0], "/path/to/file10.txt");
+
+    // Save & Load roundtrip
+    const auto file = testDir_ / "recent_settings.json";
+    EXPECT_TRUE(s.saveToFile(file));
+
+    Settings s2;
+    EXPECT_TRUE(s2.loadFromFile(file));
+    EXPECT_EQ(s2.recentFiles().size(), 10);
+    EXPECT_EQ(s2.recentFiles()[0], "/path/to/file10.txt");
+}

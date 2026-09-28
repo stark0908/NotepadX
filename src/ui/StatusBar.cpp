@@ -72,6 +72,10 @@ void StatusBar::updateEol(int eolMode) {
     gtk_label_set_text(GTK_LABEL(lblEol_), str);
 }
 
+void StatusBar::updateEncoding(const std::string& enc) {
+    gtk_label_set_text(GTK_LABEL(lblEncoding_), enc.c_str());
+}
+
 void StatusBar::updateLanguage(const std::string& lang) {
     gtk_label_set_text(GTK_LABEL(lblLang_), lang.c_str());
 }

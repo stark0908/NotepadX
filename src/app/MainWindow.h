@@ -85,6 +85,10 @@ public:
     void goToLineDialog();
     void showAboutDialog();
     void updateStatusBar();
+    void toggleBookmark(int line = -1);
+    void nextBookmark();
+    void prevBookmark();
+    void clearAllBookmarks();
 
     void saveCurrentSession();
     void restoreSession();

@@ -23,6 +23,7 @@ public:
     void updateSelection(int selLength);
     void updateDocStats(int lineCount, size_t length);
     void updateEol(int eolMode);
+    void updateEncoding(const std::string& enc);
     void updateLanguage(const std::string& lang);
 
     void setLanguageClickedCallback(LanguageClickedCallback cb) { langCb_ = std::move(cb); }

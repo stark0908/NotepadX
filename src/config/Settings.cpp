@@ -26,6 +26,17 @@ std::filesystem::path Settings::defaultSettingsFile() {
     return basePath / "settings.json";
 }
 
+void Settings::addRecentFile(const std::string& path) {
+    if (path.empty()) return;
+    // Remove if already present (to move to front)
+    auto it = std::remove(recentFiles_.begin(), recentFiles_.end(), path);
+    recentFiles_.erase(it, recentFiles_.end());
+    recentFiles_.insert(recentFiles_.begin(), path);
+    if (recentFiles_.size() > 10) {
+        recentFiles_.resize(10);
+    }
+}
+
 bool Settings::saveToFile(const std::filesystem::path& filePath) const {
     nlohmann::json j = {
         {"fontName", config_.fontName},
@@ -35,7 +46,8 @@ bool Settings::saveToFile(const std::filesystem::path& filePath) const {
         {"showLineNumbers", config_.showLineNumbers},
         {"wordWrap", config_.wordWrap},
         {"eolMode", config_.eolMode},
-        {"theme", theme_}
+        {"theme", theme_},
+        {"recentFiles", recentFiles_}
     };
 
     std::error_code ec;
@@ -80,6 +92,9 @@ bool Settings::loadFromFile(const std::filesystem::path& filePath) {
         config_.wordWrap = j.value("wordWrap", config_.wordWrap);
         config_.eolMode = j.value("eolMode", config_.eolMode);
         theme_ = j.value("theme", theme_);
+        if (j.contains("recentFiles") && j["recentFiles"].is_array()) {
+            recentFiles_ = j["recentFiles"].get<std::vector<std::string>>();
+        }
         return true;
     } catch (...) {
         return false;

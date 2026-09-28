@@ -46,6 +46,13 @@ void MenuBar::buildMenus(const std::vector<std::string>& languages) {
     gtk_menu_shell_append(GTK_MENU_SHELL(fileMenu), createMenuItem("Save", "Ctrl+S", cbs_.onSaveFile));
     gtk_menu_shell_append(GTK_MENU_SHELL(fileMenu), createMenuItem("Save As...", "Ctrl+Shift+S", cbs_.onSaveFileAs));
     addSep(fileMenu);
+
+    recentFilesMenu_ = gtk_menu_new();
+    GtkWidget* recentTop = gtk_menu_item_new_with_label("Recent Files");
+    gtk_menu_item_set_submenu(GTK_MENU_ITEM(recentTop), recentFilesMenu_);
+    gtk_menu_shell_append(GTK_MENU_SHELL(fileMenu), recentTop);
+
+    addSep(fileMenu);
     gtk_menu_shell_append(GTK_MENU_SHELL(fileMenu), createMenuItem("Close Tab", "Ctrl+W", cbs_.onCloseTab));
     gtk_menu_shell_append(GTK_MENU_SHELL(fileMenu), createMenuItem("Reopen Closed Tab", "Ctrl+Shift+T", cbs_.onReopenTab));
     addSep(fileMenu);
@@ -84,6 +91,11 @@ void MenuBar::buildMenus(const std::vector<std::string>& languages) {
     gtk_menu_shell_append(GTK_MENU_SHELL(searchMenu), createMenuItem("Find Previous", "Shift+F3", cbs_.onFindPrev));
     addSep(searchMenu);
     gtk_menu_shell_append(GTK_MENU_SHELL(searchMenu), createMenuItem("Go to Line...", "Ctrl+G", cbs_.onGoToLine));
+    addSep(searchMenu);
+    gtk_menu_shell_append(GTK_MENU_SHELL(searchMenu), createMenuItem("Toggle Bookmark", "Ctrl+F2", cbs_.onToggleBookmark));
+    gtk_menu_shell_append(GTK_MENU_SHELL(searchMenu), createMenuItem("Next Bookmark", "F2", cbs_.onNextBookmark));
+    gtk_menu_shell_append(GTK_MENU_SHELL(searchMenu), createMenuItem("Previous Bookmark", "Shift+F2", cbs_.onPrevBookmark));
+    gtk_menu_shell_append(GTK_MENU_SHELL(searchMenu), createMenuItem("Clear All Bookmarks", "Ctrl+Shift+F2", cbs_.onClearAllBookmarks));
 
     gtk_menu_shell_append(GTK_MENU_SHELL(menuBar_), searchTop);
 
@@ -147,6 +159,48 @@ void MenuBar::showLanguageMenu(GdkEventButton* event) {
         gtk_widget_show_all(languageMenu_);
         gtk_menu_popup_at_pointer(GTK_MENU(languageMenu_), reinterpret_cast<const GdkEvent*>(event));
     }
+}
+
+void MenuBar::updateRecentFiles(const std::vector<std::string>& files) {
+    if (!recentFilesMenu_) return;
+
+    GList* children = gtk_container_get_children(GTK_CONTAINER(recentFilesMenu_));
+    for (GList* iter = children; iter != nullptr; iter = g_list_next(iter)) {
+        gtk_widget_destroy(GTK_WIDGET(iter->data));
+    }
+    g_list_free(children);
+
+    if (files.empty()) {
+        GtkWidget* emptyItem = gtk_menu_item_new_with_label("No Recent Files");
+        gtk_widget_set_sensitive(emptyItem, FALSE);
+        gtk_menu_shell_append(GTK_MENU_SHELL(recentFilesMenu_), emptyItem);
+    } else {
+        struct RecentAction {
+            MenuBar* self;
+            std::string path;
+        };
+
+        for (const auto& file : files) {
+            GtkWidget* item = gtk_menu_item_new_with_label(file.c_str());
+            auto* action = new RecentAction{this, file};
+            g_signal_connect_data(item, "activate", G_CALLBACK(+[](GtkMenuItem* /*i*/, gpointer data) {
+                auto* a = static_cast<RecentAction*>(data);
+                if (a->self->cbs_.onOpenRecentFile) {
+                    a->self->cbs_.onOpenRecentFile(a->path);
+                }
+            }), action, +[](gpointer data, GClosure*) {
+                delete static_cast<RecentAction*>(data);
+            }, static_cast<GConnectFlags>(0));
+
+            gtk_menu_shell_append(GTK_MENU_SHELL(recentFilesMenu_), item);
+        }
+
+        addSep(recentFilesMenu_);
+        gtk_menu_shell_append(GTK_MENU_SHELL(recentFilesMenu_),
+                              createMenuItem("Clear Recent Files", "", cbs_.onClearRecentFiles));
+    }
+
+    gtk_widget_show_all(recentFilesMenu_);
 }
 
 } // namespace notepadx

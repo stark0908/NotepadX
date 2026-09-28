@@ -33,9 +33,12 @@ public:
     [[nodiscard]] bool isModified() const;
     void setSavePoint();
 
+    using MarginClickCallback = std::function<void(int line, int margin)>;
+
     void setContentChangedCallback(ContentChangedCallback cb);
     void setModifiedChangedCallback(ModifiedChangedCallback cb);
     void setUpdateUiCallback(UpdateUiCallback cb);
+    void setMarginClickCallback(MarginClickCallback cb);
 
 private:
     void handleNotification(const SCNotification* scn);
@@ -45,6 +48,7 @@ private:
     ContentChangedCallback contentChangedCb_{nullptr};
     ModifiedChangedCallback modifiedChangedCb_{nullptr};
     UpdateUiCallback updateUiCb_{nullptr};
+    MarginClickCallback marginClickCb_{nullptr};
     bool isModified_{false};
 };
 
