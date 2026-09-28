@@ -9,6 +9,7 @@
 #include "session/Autosave.h"
 #include "session/RecentlyClosed.h"
 #include "session/SessionManager.h"
+#include "syntax/LexerManager.h"
 #include "ui/TabBar.h"
 
 #include <memory>
@@ -79,6 +80,7 @@ private:
     Autosave autosave_;
     guint autosaveTimeoutId_{0};
     FileWatcher fileWatcher_;
+    LexerManager lexerManager_;
     EditorConfig editorConfig_;
     std::unordered_map<std::string, std::unique_ptr<Editor>> editors_;
 };

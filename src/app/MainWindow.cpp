@@ -86,6 +86,9 @@ Document* MainWindow::openDocument(std::unique_ptr<Document> doc, std::string_vi
         editor->adapter().setText(content);
     }
 
+    const std::string lang = lexerManager_.detectLanguage(rawDoc->filePath());
+    lexerManager_.applyLanguage(editor->adapter(), lang, true);
+
     editor->setModifiedChangedCallback([this, rawDoc](bool modified) {
         rawDoc->setModified(modified);
         const int idx = tabBar_.indexOfDocument(rawDoc);
@@ -152,6 +155,8 @@ Document* MainWindow::openFile(const std::string& filePath) {
             current->setFilePath(targetPath);
             it->second->adapter().setText(content);
             it->second->setSavePoint();
+            const std::string lang = lexerManager_.detectLanguage(targetPath);
+            lexerManager_.applyLanguage(it->second->adapter(), lang, true);
             const int idx = tabBar_.indexOfDocument(current);
             if (idx >= 0) {
                 tabBar_.updateTabTitle(idx);
@@ -282,6 +287,9 @@ bool MainWindow::saveDocument(Document* doc, const std::string& targetPath) {
 
     doc->setFilePath(targetPath);
     it->second->setSavePoint();
+
+    const std::string lang = lexerManager_.detectLanguage(targetPath);
+    lexerManager_.applyLanguage(it->second->adapter(), lang, true);
 
     const int idx = tabBar_.indexOfDocument(doc);
     if (idx >= 0) {
