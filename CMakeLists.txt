@@ -52,6 +52,7 @@ set(NOTEPADX_SOURCES
     src/session/Autosave.cpp
     src/session/RecentlyClosed.cpp
     src/session/SessionManager.cpp
+    src/platform/Encoding.cpp
     src/platform/FileWatcher.cpp
     src/search/Regex.cpp
     src/search/Search.cpp
@@ -104,6 +105,7 @@ add_executable(notepadx_tests
     tests/test_search.cpp
     tests/test_settings.cpp
     tests/test_ipc.cpp
+    tests/test_encoding.cpp
     src/config/Settings.cpp
     src/document/Document.cpp
     src/document/DocumentManager.cpp
@@ -111,6 +113,7 @@ add_executable(notepadx_tests
     src/editor/EditorConfig.cpp
     src/editor/ScintillaAdapter.cpp
     src/ipc/SingleInstance.cpp
+    src/platform/Encoding.cpp
     src/search/Regex.cpp
     src/search/Search.cpp
     src/session/Autosave.cpp

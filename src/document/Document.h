@@ -32,6 +32,9 @@ public:
     [[nodiscard]] const std::string& content() const noexcept { return content_; }
     void setContent(std::string content) { content_ = std::move(content); }
 
+    [[nodiscard]] const std::string& encoding() const noexcept { return encoding_; }
+    void setEncoding(std::string enc) { encoding_ = std::move(enc); }
+
     [[nodiscard]] std::string displayName() const;
 
     static std::string generateUuid();
@@ -44,6 +47,7 @@ private:
     int64_t cursorPosition_{0};
     int64_t scrollLine_{0};
     std::string content_;
+    std::string encoding_{"UTF-8"};
 };
 
 } // namespace notepadx
