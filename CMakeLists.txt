@@ -36,12 +36,20 @@ add_custom_command(
 )
 add_custom_target(lexilla_build DEPENDS ${LEXILLA_LIB})
 
-# --- NotepadX executable ---
-add_executable(notepadx
+# --- NotepadX sources ---
+set(NOTEPADX_SOURCES
     src/main.cpp
+    src/app/Application.cpp
+    src/app/MainWindow.cpp
+    src/editor/Editor.cpp
+    src/editor/EditorConfig.cpp
+    src/editor/ScintillaAdapter.cpp
 )
 
+add_executable(notepadx ${NOTEPADX_SOURCES})
+
 target_include_directories(notepadx PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
     ${GTK3_INCLUDE_DIRS}
     ${SCINTILLA_DIR}/include
     ${LEXILLA_DIR}/include
