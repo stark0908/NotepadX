@@ -1192,4 +1192,10 @@ void MainWindow::show() {
     gtk_widget_show_all(window_);
 }
 
+void MainWindow::present() {
+    if (window_) {
+        gtk_window_present(GTK_WINDOW(window_));
+    }
+}
+
 } // namespace notepadx

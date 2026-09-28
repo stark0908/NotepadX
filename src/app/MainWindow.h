@@ -90,6 +90,7 @@ public:
     void restoreSession();
 
     void show();
+    void present();
 
 private:
     void setupMenuBar();
