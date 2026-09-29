@@ -4,15 +4,15 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc="Fast, bloat-free text and code editor for Linux"
 arch=('x86_64')
-url="https://github.com/notepadx/notepadx"
+url="https://github.com/stark0908/NotepadX"
 license=('GPL3')
 depends=('gtk3' 'pcre2')
-makedepends=('cmake' 'gcc' 'make' 'pkgconf')
-source=("$pkgname-$pkgver.tar.gz")
+makedepends=('cmake' 'gcc' 'make' 'pkgconf' 'git')
+source=("$pkgname::git+https://github.com/stark0908/NotepadX.git#branch=main")
 sha256sums=('SKIP')
 
 build() {
-    cmake -B build -S "$pkgname-$pkgver" \
+    cmake -B build -S "$srcdir/$pkgname" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr
     cmake --build build -j$(nproc)
