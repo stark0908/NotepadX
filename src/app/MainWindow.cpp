@@ -17,18 +17,7 @@ MainWindow::MainWindow(GtkApplication* app)
 
     gtk_window_set_title(GTK_WINDOW(window_), "NotepadX");
     gtk_window_set_default_size(GTK_WINDOW(window_), 900, 600);
-    gtk_window_set_icon_name(GTK_WINDOW(window_), "notepadx");
-    gtk_window_set_default_icon_name("notepadx");
-    for (const char* iconPath : {"data/icons/hicolor/scalable/apps/notepadx.svg",
-                                "../data/icons/hicolor/scalable/apps/notepadx.svg"}) {
-        if (std::filesystem::exists(iconPath)) {
-            GError* err = nullptr;
-            if (gtk_window_set_icon_from_file(GTK_WINDOW(window_), iconPath, &err)) {
-                break;
-            }
-            g_clear_error(&err);
-        }
-    }
+    setupAppIcon();
 
     gtk_container_add(GTK_CONTAINER(window_), mainBox_);
     gtk_box_pack_start(GTK_BOX(mainBox_), menuBar_->widget(), FALSE, FALSE, 0);
@@ -753,6 +742,76 @@ void MainWindow::setupDragAndDrop() {
     gtk_drag_dest_set(window_, GTK_DEST_DEFAULT_ALL, nullptr, 0, GDK_ACTION_COPY);
     gtk_drag_dest_add_uri_targets(window_);
     g_signal_connect(window_, "drag-data-received", G_CALLBACK(onDragDataReceived), this);
+}
+
+void MainWindow::setupAppIcon() {
+    gtk_window_set_icon_name(GTK_WINDOW(window_), "notepadx");
+    gtk_window_set_default_icon_name("notepadx");
+
+    // Add local search paths to GTK's icon theme
+    GtkIconTheme* theme = gtk_icon_theme_get_default();
+    if (theme) {
+        gtk_icon_theme_append_search_path(theme, "data/icons");
+        gtk_icon_theme_append_search_path(theme, "../data/icons");
+        if (const char* appdir = getenv("APPDIR")) {
+            std::string appIcons = std::string(appdir) + "/usr/share/icons";
+            gtk_icon_theme_append_search_path(theme, appIcons.c_str());
+        }
+    }
+
+    // Locate the SVG icon file across local dev, AppImage, or system install paths
+    std::string iconPath;
+    const std::vector<std::string> candidates = {
+        "data/icons/hicolor/scalable/apps/notepadx.svg",
+        "../data/icons/hicolor/scalable/apps/notepadx.svg",
+        "/usr/share/icons/hicolor/scalable/apps/notepadx.svg"
+    };
+    for (const auto& c : candidates) {
+        if (std::filesystem::exists(c)) {
+            iconPath = c;
+            break;
+        }
+    }
+    if (iconPath.empty()) {
+        if (const char* appdir = getenv("APPDIR")) {
+            std::string p = std::string(appdir) + "/usr/share/icons/hicolor/scalable/apps/notepadx.svg";
+            if (std::filesystem::exists(p)) {
+                iconPath = p;
+            }
+        }
+    }
+
+    if (!iconPath.empty()) {
+        // Multi-resolution pixbuf list (16, 24, 32, 48, 64, 128, 256) for X11 / XWayland
+        GList* iconList = nullptr;
+        for (int sz : {16, 24, 32, 48, 64, 128, 256}) {
+            GError* err = nullptr;
+            GdkPixbuf* pix = gdk_pixbuf_new_from_file_at_scale(iconPath.c_str(), sz, sz, TRUE, &err);
+            if (pix) {
+                iconList = g_list_append(iconList, pix);
+            } else {
+                g_clear_error(&err);
+            }
+        }
+        if (iconList) {
+            gtk_window_set_default_icon_list(iconList);
+            gtk_window_set_icon_list(GTK_WINDOW(window_), iconList);
+            g_list_free_full(iconList, g_object_unref);
+        }
+
+        // On Wayland, register with user icon theme if not already present
+        const char* home = getenv("HOME");
+        if (home) {
+            const std::filesystem::path userIcon = std::filesystem::path(home) / ".local/share/icons/hicolor/scalable/apps/notepadx.svg";
+            if (!std::filesystem::exists(userIcon)) {
+                std::error_code ec;
+                std::filesystem::create_directories(userIcon.parent_path(), ec);
+                if (!ec) {
+                    std::filesystem::copy_file(iconPath, userIcon, std::filesystem::copy_options::overwrite_existing, ec);
+                }
+            }
+        }
+    }
 }
 
 void MainWindow::onDragDataReceived([[maybe_unused]] GtkWidget* widget,

@@ -5,6 +5,9 @@
 #include <vector>
 
 int main(int argc, char* argv[]) {
+    g_set_prgname("notepadx");
+    g_set_application_name("NotepadX");
+
     const auto startTime = std::chrono::steady_clock::now();
     bool forceNewWindow = false;
     bool benchStartup = false;

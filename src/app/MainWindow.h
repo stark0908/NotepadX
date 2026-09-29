@@ -102,6 +102,7 @@ private:
     void setupShortcuts();
     void setupDragAndDrop();
     void setupSearch();
+    void setupAppIcon();
     void updateWindowTitle();
     void saveDocumentToStore(const std::string& docId);
     bool promptToSaveIfModified(Document* doc);

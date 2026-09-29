@@ -1,9 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1530 1530" width="1530" height="1530">
   <defs>
-    <radialGradient id="bg" cx="50%" cy="45%" r="75%">
-      <stop offset="0" stop-color="#587a45"/>
-      <stop offset="1" stop-color="#44623a"/>
-    </radialGradient>
     <linearGradient id="body" x1="0" y1="0" x2="0.4" y2="1">
       <stop offset="0" stop-color="#2c4640"/>
       <stop offset="0.5" stop-color="#1b2e2b"/>
@@ -44,9 +40,6 @@
       <feDropShadow dx="6" dy="10" stdDeviation="10" flood-color="#000" flood-opacity="0.3"/>
     </filter>
   </defs>
-
-  <!-- Background -->
-  <rect width="1530" height="1530" fill="url(#bg)"/>
 
   <!-- Penguin body -->
   <path d="M230 1420 C150 1300 60 1100 100 900 C140 700 300 500 400 340 C480 200 620 110 780 100 C940 100 1040 190 1070 300 L1200 640 C1300 760 1400 900 1390 1100 C1380 1250 1300 1350 1200 1400 L500 1440 Z" fill="url(#body)"/>
