@@ -44,13 +44,18 @@ MainWindow::MainWindow(GtkApplication* app)
             g_source_remove(autosaveTimeoutId_);
             autosaveTimeoutId_ = 0;
         }
-        auto* cbPtr = new std::function<void()>(std::move(cb));
-        autosaveTimeoutId_ = g_timeout_add(delayMs, +[](gpointer data) -> gboolean {
-            auto* fn = static_cast<std::function<void()>*>(data);
-            (*fn)();
-            delete fn;
+        struct TimeoutData {
+            MainWindow* self;
+            std::function<void()> cb;
+        };
+        auto* data = new TimeoutData{this, std::move(cb)};
+        autosaveTimeoutId_ = g_timeout_add(delayMs, +[](gpointer ptr) -> gboolean {
+            auto* d = static_cast<TimeoutData*>(ptr);
+            d->self->autosaveTimeoutId_ = 0;
+            d->cb();
+            delete d;
             return G_SOURCE_REMOVE;
-        }, cbPtr);
+        }, data);
     });
 
     tabBar_.setTabChangedCallback([this](int /*pageIndex*/, Document* doc) {
@@ -92,8 +97,7 @@ MainWindow::~MainWindow() {
 }
 
 Document* MainWindow::newTab() {
-    Document* doc = docManager_.createUntitled();
-    return openDocument(std::unique_ptr<Document>(docManager_.removeDocument(doc->id())), "");
+    return openDocument(docManager_.createUntitledDocument(), "");
 }
 
 Document* MainWindow::openDocument(std::unique_ptr<Document> doc, std::string_view content) {
@@ -318,9 +322,18 @@ bool MainWindow::saveDocument(Document* doc, const std::string& targetPath) {
 
     const std::string encoded = Encoding::fromUtf8(content, encType);
 
-    fileWatcher_.ignoreNextChange(targetPath);
+    std::error_code canEc;
+    const std::filesystem::path resolvedPath = std::filesystem::is_symlink(targetPath, canEc)
+        ? std::filesystem::canonical(targetPath, canEc)
+        : std::filesystem::path(targetPath);
+    const std::string savePath = (canEc ? targetPath : resolvedPath.string());
 
-    const auto tmpPath = targetPath + ".tmp";
+    fileWatcher_.ignoreNextChange(targetPath);
+    if (savePath != targetPath) {
+        fileWatcher_.ignoreNextChange(savePath);
+    }
+
+    const auto tmpPath = savePath + ".tmp";
     {
         std::ofstream out(tmpPath, std::ios::binary | std::ios::trunc);
         if (!out.is_open()) {
@@ -329,12 +342,14 @@ bool MainWindow::saveDocument(Document* doc, const std::string& targetPath) {
         out.write(encoded.data(), static_cast<std::streamsize>(encoded.size()));
         out.flush();
         if (!out.good()) {
+            std::error_code rmEc;
+            std::filesystem::remove(tmpPath, rmEc);
             return false;
         }
     }
 
     std::error_code ec;
-    std::filesystem::rename(tmpPath, targetPath, ec);
+    std::filesystem::rename(tmpPath, savePath, ec);
     if (ec) {
         std::filesystem::remove(tmpPath, ec);
         return false;
@@ -422,6 +437,11 @@ void MainWindow::onExternalFileChanged(const std::string& path) {
         return;
     }
 
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
+        return;
+    }
+
     std::string msg = "\"" + doc->title() + "\" has been modified by another program.\nDo you want to reload it?";
     GtkWidget* dialog = gtk_message_dialog_new(
         GTK_WINDOW(window_),
@@ -446,15 +466,21 @@ void MainWindow::onExternalFileChanged(const std::string& path) {
         if (in.is_open()) {
             std::ostringstream ss;
             ss << in.rdbuf();
+            const std::string rawData = ss.str();
+            const auto detected = Encoding::detect(rawData);
+            const std::string content = Encoding::toUtf8(rawData, detected.type);
+            doc->setEncoding(detected.name);
+
             auto it = editors_.find(doc->id());
             if (it != editors_.end()) {
-                it->second->adapter().setText(ss.str());
+                it->second->adapter().setText(content);
                 it->second->setSavePoint();
                 const int idx = tabBar_.indexOfDocument(doc);
                 if (idx >= 0) {
                     tabBar_.updateTabTitle(idx);
                 }
                 updateWindowTitle();
+                updateStatusBar();
             }
         }
     }
@@ -1125,7 +1151,7 @@ void MainWindow::duplicateLine() {
 }
 
 void MainWindow::deleteLine() {
-    if (auto* ed = activeEditor()) ed->adapter().send(SCI_LINECUT);
+    if (auto* ed = activeEditor()) ed->adapter().send(SCI_LINEDELETE);
 }
 
 void MainWindow::moveLineUp() {

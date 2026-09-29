@@ -21,6 +21,7 @@ public:
     DocumentManager& operator=(DocumentManager&&) noexcept = default;
 
     Document* createUntitled();
+    std::unique_ptr<Document> createUntitledDocument();
     Document* addDocument(std::unique_ptr<Document> doc);
 
     [[nodiscard]] Document* findById(std::string_view id) const;

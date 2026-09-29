@@ -4,14 +4,15 @@
 
 namespace notepadx {
 
-Document* DocumentManager::createUntitled() {
+std::unique_ptr<Document> DocumentManager::createUntitledDocument() {
     ++untitledCounter_;
     auto doc = std::make_unique<Document>();
     doc->setTitle("Untitled " + std::to_string(untitledCounter_));
-    Document* ptr = doc.get();
-    documents_.push_back(std::move(doc));
-    activeDocument_ = ptr;
-    return ptr;
+    return doc;
+}
+
+Document* DocumentManager::createUntitled() {
+    return addDocument(createUntitledDocument());
 }
 
 Document* DocumentManager::addDocument(std::unique_ptr<Document> doc) {
