@@ -46,27 +46,27 @@
 
 ## Key Features
 
-### ⚡ Editing Engine
+### Editing Engine
 - **Scintilla Core**: High-speed line layout, multi-selection, folding, rectangular blocks, and customizable line wrapping.
 - **Atomic Undo Chunking**: Debounces continuous typing pauses (750 ms) and seals undo records at word/line boundaries to prevent single-character undo fatigue.
 - **Jitter-Free Gutter**: Right-aligned line numbers with a 2-digit minimum baseline (`"99"`), preventing awkward viewport shifting between lines 1 and 99.
 - **Subtle Line Bookmarks**: Click on line numbers or press `Ctrl+F2` to toggle bookmarks, rendered with clean translucent line highlights.
 
-### 🎨 Syntax Highlighting (Lexilla)
+### Syntax Highlighting (Lexilla)
 - Native language recognition for **C/C++**, **Python**, **Rust**, **Go**, **JavaScript**, **TypeScript**, **Bash**, **Markdown**, **HTML**, **CSS**, **JSON**, **YAML**, **SQL**, and more.
 - Built-in **Dark / Light theme** toggling with contrast-optimized color palettes.
 
-### 📑 Tab Management
+### Tab Management
 - **Gap-Safe Slot Recycling**: Seamlessly reclaims closed untitled slots (`New 1`, `New 2`, `New 3`).
-- **Tab Bar Overflow Menu**: Dedicated `▼` button provides a searchable menu of all open documents.
+- **Tab Bar Overflow Menu**: Dedicated dropdown button provides a searchable menu of all open documents.
 - **Smooth Tab Navigation**: Rate-limited mouse wheel and trackpad scroll filtering prevents runaway tab cycling.
 - **Duplicate Name Disambiguation**: Intelligently appends parent directory paths when files share the same filename.
 
-### 🔍 Search & Replace
+### Search & Replace
 - **PCRE2 Regex Support**: Full Perl-compatible regular expressions with capture group substitutions (`$1`, `$2`).
 - **Non-blocking Find Bar**: Incremental match highlighting, reverse search (`Shift+Enter`), whole word, and case sensitivity toggles.
 
-### 🛡️ Persistence & Reliability
+### Persistence & Reliability
 - **Atomic Autosave**: 500 ms debounced background autosaving via POSIX `.tmp` write and atomic `rename()` to eliminate data corruption risks during power outages or crashes.
 - **Session Restoration**: Restores opened tabs, cursor offsets, and active tab index across reboots.
 - **Encoding Auto-Detection**: Validates UTF-8, handles UTF-8 BOM, UTF-16LE, UTF-16BE, and gracefully converts legacy Latin-1 fallbacks.
