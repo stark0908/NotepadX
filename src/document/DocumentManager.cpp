@@ -2,13 +2,30 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <unordered_set>
 
 namespace notepadx {
 
 std::unique_ptr<Document> DocumentManager::createUntitledDocument() {
-    ++untitledCounter_;
+    std::unordered_set<int> usedNumbers;
+    for (const auto& doc : documents_) {
+        if (doc && doc->isUnnamed()) {
+            const std::string& t = doc->title();
+            if (t.rfind("Untitled ", 0) == 0) {
+                try {
+                    usedNumbers.insert(std::stoi(t.substr(9)));
+                } catch (...) {}
+            }
+        }
+    }
+
+    int nextSlot = 1;
+    while (usedNumbers.contains(nextSlot)) {
+        ++nextSlot;
+    }
+
     auto doc = std::make_unique<Document>();
-    doc->setTitle("Untitled " + std::to_string(untitledCounter_));
+    doc->setTitle("Untitled " + std::to_string(nextSlot));
     return doc;
 }
 

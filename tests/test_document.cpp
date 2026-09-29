@@ -76,19 +76,27 @@ TEST(DocumentManagerTest, RemoveDocumentUpdatesActive) {
     EXPECT_EQ(mgr.activeDocument(), doc1);
 }
 
-TEST(DocumentManagerTest, SyncUntitledCounterAfterRestore) {
+TEST(DocumentManagerTest, SlotRecyclingReclaimsGaps) {
     DocumentManager mgr;
-    // Simulate restoring existing untitled tabs from a saved session
+    // Simulate open tabs: Untitled 1 and Untitled 4 (gap at 2, 3)
     auto doc1 = std::make_unique<Document>("id1", "Untitled 1", "");
     auto doc4 = std::make_unique<Document>("id4", "Untitled 4", "");
     mgr.addDocument(std::move(doc1));
     mgr.addDocument(std::move(doc4));
 
-    mgr.syncUntitledCounterWithExisting();
+    // Next created untitled document reclaims slot 2
+    auto nextDoc1 = mgr.createUntitledDocument();
+    EXPECT_EQ(nextDoc1->title(), "Untitled 2");
 
-    // Next created untitled document should be Untitled 5, not Untitled 1
-    auto nextDoc = mgr.createUntitledDocument();
-    EXPECT_EQ(nextDoc->title(), "Untitled 5");
+    // Add Untitled 2; next slot should reclaim slot 3
+    mgr.addDocument(std::move(nextDoc1));
+    auto nextDoc2 = mgr.createUntitledDocument();
+    EXPECT_EQ(nextDoc2->title(), "Untitled 3");
+
+    // Add Untitled 3; now 1, 2, 3, 4 are filled -> next is Untitled 5
+    mgr.addDocument(std::move(nextDoc2));
+    auto nextDoc3 = mgr.createUntitledDocument();
+    EXPECT_EQ(nextDoc3->title(), "Untitled 5");
 }
 
 TEST(DocumentManagerTest, DuplicateFileNameDisambiguation) {
