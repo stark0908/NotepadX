@@ -140,9 +140,6 @@ Document* MainWindow::openDocument(std::unique_ptr<Document> doc, std::string_vi
         if (rawDoc->isUnnamed()) {
             autosave_.markDirty(rawDoc->id());
         }
-        if (docManager_.activeDocument() == rawDoc) {
-            updateStatusBar();
-        }
     });
 
     editor->setUpdateUiCallback([this]() {
@@ -688,9 +685,6 @@ void MainWindow::restoreSession() {
             if (auto* ed = editors_[created->id()].get()) {
                 ed->adapter().setCurrentPos(tab.cursorPosition);
                 ed->adapter().setFirstVisibleLine(tab.scrollLine);
-                if (!tab.language.empty()) {
-                    lexerManager_.applyLanguage(ed->adapter(), tab.language, settings_.isDarkTheme());
-                }
                 if (!tab.isModified) {
                     ed->setSavePoint();
                 }
@@ -759,6 +753,14 @@ void MainWindow::setupAppIcon() {
         }
     }
 
+    // On Wayland, compositors match icons via desktop entry app_id and ignore _NET_WM_ICON.
+    // Skip synchronous rasterization to avoid blocking startup presentation.
+    GdkDisplay* display = gdk_display_get_default();
+    const bool isWayland = display && (g_strcmp0(G_OBJECT_TYPE_NAME(display), "GdkWaylandDisplay") == 0);
+    if (isWayland) {
+        return;
+    }
+
     // Locate the SVG icon file across local dev, AppImage, or system install paths
     std::string iconPath;
     const std::vector<std::string> candidates = {
@@ -782,35 +784,34 @@ void MainWindow::setupAppIcon() {
     }
 
     if (!iconPath.empty()) {
-        // Multi-resolution pixbuf list (16, 24, 32, 48, 64, 128, 256) for X11 / XWayland
-        GList* iconList = nullptr;
-        for (int sz : {16, 24, 32, 48, 64, 128, 256}) {
-            GError* err = nullptr;
-            GdkPixbuf* pix = gdk_pixbuf_new_from_file_at_scale(iconPath.c_str(), sz, sz, TRUE, &err);
-            if (pix) {
-                iconList = g_list_append(iconList, pix);
-            } else {
-                g_clear_error(&err);
-            }
-        }
-        if (iconList) {
-            gtk_window_set_default_icon_list(iconList);
-            gtk_window_set_icon_list(GTK_WINDOW(window_), iconList);
-            g_list_free_full(iconList, g_object_unref);
-        }
-
-        // On Wayland, register with user icon theme if not already present
-        const char* home = getenv("HOME");
-        if (home) {
-            const std::filesystem::path userIcon = std::filesystem::path(home) / ".local/share/icons/hicolor/scalable/apps/notepadx.svg";
-            if (!std::filesystem::exists(userIcon)) {
-                std::error_code ec;
-                std::filesystem::create_directories(userIcon.parent_path(), ec);
-                if (!ec) {
-                    std::filesystem::copy_file(iconPath, userIcon, std::filesystem::copy_options::overwrite_existing, ec);
+        // Multi-resolution pixbuf list deferred to idle for X11 / XWayland
+        struct IconIdleData {
+            GtkWidget* window;
+            std::string path;
+        };
+        auto* data = new IconIdleData{window_, std::move(iconPath)};
+        g_idle_add(+[](gpointer p) -> gboolean {
+            auto* d = static_cast<IconIdleData*>(p);
+            GList* iconList = nullptr;
+            for (int sz : {16, 24, 32, 48, 64, 128, 256}) {
+                GError* err = nullptr;
+                GdkPixbuf* pix = gdk_pixbuf_new_from_file_at_scale(d->path.c_str(), sz, sz, TRUE, &err);
+                if (pix) {
+                    iconList = g_list_append(iconList, pix);
+                } else {
+                    g_clear_error(&err);
                 }
             }
-        }
+            if (iconList) {
+                gtk_window_set_default_icon_list(iconList);
+                if (GTK_IS_WINDOW(d->window)) {
+                    gtk_window_set_icon_list(GTK_WINDOW(d->window), iconList);
+                }
+                g_list_free_full(iconList, g_object_unref);
+            }
+            delete d;
+            return G_SOURCE_REMOVE;
+        }, data);
     }
 }
 

@@ -37,11 +37,47 @@ int Application::run(int argc, char* argv[]) {
     return g_application_run(G_APPLICATION(app_), argc, argv);
 }
 
+namespace {
+
+struct BenchData {
+    Application* app;
+    GtkApplication* gtkApp;
+    std::chrono::steady_clock::time_point startTime;
+    gulong handlerId;
+};
+
+void onFrameClockAfterPaint(GdkFrameClock* clk, gpointer data) {
+    auto* b = static_cast<BenchData*>(data);
+    g_signal_handler_disconnect(clk, b->handlerId);
+    const auto endTime = std::chrono::steady_clock::now();
+    const double ms = std::chrono::duration<double, std::milli>(endTime - b->startTime).count();
+    std::cout << "Startup time: " << ms << " ms" << std::endl;
+    g_application_quit(G_APPLICATION(b->gtkApp));
+    delete b;
+}
+
+} // namespace
+
 void Application::onActivate([[maybe_unused]] GtkApplication* app, gpointer userData) {
     auto* self = static_cast<Application*>(userData);
     self->ensureInitialized();
 
     if (self->benchMode_) {
+        GtkWidget* win = self->mainWindow_ ? self->mainWindow_->window() : nullptr;
+        if (win) {
+            gtk_widget_realize(win);
+            GdkWindow* gdkWin = gtk_widget_get_window(win);
+            if (gdkWin) {
+                GdkFrameClock* clock = gdk_window_get_frame_clock(gdkWin);
+                if (clock) {
+                    auto* bd = new BenchData{self, self->app_, self->startTime_, 0};
+                    bd->handlerId = g_signal_connect(clock, "after-paint", G_CALLBACK(onFrameClockAfterPaint), bd);
+                    return;
+                }
+            }
+        }
+
+        // Fallback for headless environments without a frame clock
         while (gtk_events_pending()) {
             gtk_main_iteration();
         }

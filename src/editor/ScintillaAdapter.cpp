@@ -30,6 +30,7 @@ ScintillaAdapter::ScintillaAdapter()
     send(SCI_SETBACKSPACEUNINDENTS, 1);
     send(SCI_SETCARETPERIOD, 500);
     send(SCI_SETCARETWIDTH, 2);
+    send(SCI_SETLAYOUTCACHE, SC_CACHE_PAGE);
     send(SCI_SETMODEVENTMASK, SC_MOD_INSERTTEXT | SC_MOD_DELETETEXT | SC_PERFORMED_USER | SC_PERFORMED_UNDO | SC_PERFORMED_REDO);
 }
 
@@ -91,6 +92,12 @@ void ScintillaAdapter::updateLineNumberWidth() {
         ++digits;
     }
     digits = std::max(digits, 2);
+
+    if (digits == cachedDigits_) {
+        return;
+    }
+    cachedDigits_ = digits;
+
     const std::string sample(static_cast<size_t>(digits), '9');
 
     const sptr_t pixelWidth = send(SCI_TEXTWIDTH, STYLE_LINENUMBER, reinterpret_cast<sptr_t>(sample.c_str()));

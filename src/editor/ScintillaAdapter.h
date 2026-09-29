@@ -56,6 +56,7 @@ private:
 
     GtkWidget* widget_{nullptr};
     NotificationCallback notificationCb_{nullptr};
+    int cachedDigits_{-1};
 };
 
 } // namespace notepadx
