@@ -35,6 +35,9 @@ public:
     [[nodiscard]] const std::string& encoding() const noexcept { return encoding_; }
     void setEncoding(std::string enc) { encoding_ = std::move(enc); }
 
+    [[nodiscard]] const std::string& language() const noexcept { return language_; }
+    void setLanguage(std::string lang) { language_ = std::move(lang); }
+
     [[nodiscard]] std::string displayName() const;
 
     static std::string generateUuid();
@@ -48,6 +51,7 @@ private:
     int64_t scrollLine_{0};
     std::string content_;
     std::string encoding_{"UTF-8"};
+    std::string language_{"Plain Text"};
 };
 
 } // namespace notepadx

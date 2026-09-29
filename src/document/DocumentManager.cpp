@@ -1,6 +1,7 @@
 #include "document/DocumentManager.h"
 
 #include <algorithm>
+#include <filesystem>
 
 namespace notepadx {
 
@@ -85,6 +86,46 @@ Document* DocumentManager::at(size_t index) const {
         return documents_[index].get();
     }
     return nullptr;
+}
+
+void DocumentManager::syncUntitledCounterWithExisting() {
+    for (const auto& doc : documents_) {
+        if (doc && doc->isUnnamed()) {
+            const std::string& t = doc->title();
+            if (t.rfind("Untitled ", 0) == 0) {
+                try {
+                    const int num = std::stoi(t.substr(9));
+                    if (num > untitledCounter_) {
+                        untitledCounter_ = num;
+                    }
+                } catch (...) {}
+            }
+        }
+    }
+}
+
+std::string DocumentManager::displayName(const Document* doc) const {
+    if (!doc) {
+        return {};
+    }
+    std::string base = doc->title().empty() ? "Untitled" : doc->title();
+    if (!doc->isUnnamed() && !doc->filePath().empty()) {
+        bool duplicate = false;
+        for (const auto& other : documents_) {
+            if (other.get() != doc && other->title() == doc->title()) {
+                duplicate = true;
+                break;
+            }
+        }
+        if (duplicate) {
+            std::filesystem::path p(doc->filePath());
+            std::string parentName = p.parent_path().filename().string();
+            if (!parentName.empty()) {
+                base += " (" + parentName + ")";
+            }
+        }
+    }
+    return doc->isModified() ? "• " + base : base;
 }
 
 } // namespace notepadx

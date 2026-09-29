@@ -14,6 +14,7 @@ struct SessionTab {
     bool isModified{false};
     int64_t cursorPosition{0};
     int64_t scrollLine{0};
+    std::string language{"Plain Text"};
 };
 
 struct SessionState {

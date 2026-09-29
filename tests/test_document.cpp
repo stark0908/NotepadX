@@ -75,3 +75,40 @@ TEST(DocumentManagerTest, RemoveDocumentUpdatesActive) {
     EXPECT_EQ(mgr.count(), 1);
     EXPECT_EQ(mgr.activeDocument(), doc1);
 }
+
+TEST(DocumentManagerTest, SyncUntitledCounterAfterRestore) {
+    DocumentManager mgr;
+    // Simulate restoring existing untitled tabs from a saved session
+    auto doc1 = std::make_unique<Document>("id1", "Untitled 1", "");
+    auto doc4 = std::make_unique<Document>("id4", "Untitled 4", "");
+    mgr.addDocument(std::move(doc1));
+    mgr.addDocument(std::move(doc4));
+
+    mgr.syncUntitledCounterWithExisting();
+
+    // Next created untitled document should be Untitled 5, not Untitled 1
+    auto nextDoc = mgr.createUntitledDocument();
+    EXPECT_EQ(nextDoc->title(), "Untitled 5");
+}
+
+TEST(DocumentManagerTest, DuplicateFileNameDisambiguation) {
+    DocumentManager mgr;
+    auto docA = std::make_unique<Document>("idA", "main.cpp", "/workspace/projectA/main.cpp");
+    auto docB = std::make_unique<Document>("idB", "main.cpp", "/workspace/projectB/main.cpp");
+    auto docC = std::make_unique<Document>("idC", "utils.h", "/workspace/projectA/utils.h");
+
+    Document* ptrA = mgr.addDocument(std::move(docA));
+    Document* ptrB = mgr.addDocument(std::move(docB));
+    Document* ptrC = mgr.addDocument(std::move(docC));
+
+    // Non-duplicate file displays normal name
+    EXPECT_EQ(mgr.displayName(ptrC), "utils.h");
+
+    // Duplicate files display parent directory suffix
+    EXPECT_EQ(mgr.displayName(ptrA), "main.cpp (projectA)");
+    EXPECT_EQ(mgr.displayName(ptrB), "main.cpp (projectB)");
+
+    // Modified status prepends bullet
+    ptrA->setModified(true);
+    EXPECT_EQ(mgr.displayName(ptrA), "• main.cpp (projectA)");
+}

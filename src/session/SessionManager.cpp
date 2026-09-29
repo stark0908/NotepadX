@@ -35,7 +35,8 @@ bool SessionManager::saveSession(const SessionState& state, const std::filesyste
             {"filePath", tab.filePath},
             {"isModified", tab.isModified},
             {"cursorPosition", tab.cursorPosition},
-            {"scrollLine", tab.scrollLine}
+            {"scrollLine", tab.scrollLine},
+            {"language", tab.language}
         });
     }
 
@@ -90,6 +91,7 @@ SessionState SessionManager::loadSession(const std::filesystem::path& sessionFil
                 tab.isModified = jTab.value("isModified", false);
                 tab.cursorPosition = jTab.value("cursorPosition", int64_t{0});
                 tab.scrollLine = jTab.value("scrollLine", int64_t{0});
+                tab.language = jTab.value("language", "Plain Text");
 
                 if (!tab.id.empty()) {
                     state.tabs.push_back(std::move(tab));

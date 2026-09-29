@@ -109,18 +109,22 @@ void TabBar::removeTab(int pageIndex) {
     gtk_notebook_remove_page(GTK_NOTEBOOK(notebook_), pageIndex);
 }
 
-void TabBar::updateTabTitle(int pageIndex) {
+void TabBar::updateTabTitle(int pageIndex, const std::string& overrideTitle, const std::string& tooltip) {
     if (pageIndex < 0 || static_cast<size_t>(pageIndex) >= tabs_.size()) {
         return;
     }
     Document* doc = tabs_[static_cast<size_t>(pageIndex)].doc;
-    if (doc && tabs_[static_cast<size_t>(pageIndex)].labelWidget) {
-        gtk_label_set_text(GTK_LABEL(tabs_[static_cast<size_t>(pageIndex)].labelWidget),
-                           doc->displayName().c_str());
-        if (!doc->filePath().empty()) {
-            gtk_widget_set_tooltip_text(tabs_[static_cast<size_t>(pageIndex)].tabBox,
-                                       doc->filePath().c_str());
-        }
+    if (!doc || !tabs_[static_cast<size_t>(pageIndex)].labelWidget) {
+        return;
+    }
+    const std::string text = !overrideTitle.empty() ? overrideTitle : doc->displayName();
+    gtk_label_set_text(GTK_LABEL(tabs_[static_cast<size_t>(pageIndex)].labelWidget), text.c_str());
+
+    const std::string tip = !tooltip.empty() ? tooltip : doc->filePath();
+    if (!tip.empty()) {
+        gtk_widget_set_tooltip_text(tabs_[static_cast<size_t>(pageIndex)].tabBox, tip.c_str());
+    } else {
+        gtk_widget_set_tooltip_text(tabs_[static_cast<size_t>(pageIndex)].tabBox, text.c_str());
     }
 }
 

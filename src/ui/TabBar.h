@@ -27,7 +27,7 @@ public:
 
     void addTab(Document* doc, GtkWidget* pageWidget);
     void removeTab(int pageIndex);
-    void updateTabTitle(int pageIndex);
+    void updateTabTitle(int pageIndex, const std::string& overrideTitle = {}, const std::string& tooltip = {});
 
     [[nodiscard]] int activeIndex() const;
     void setActiveIndex(int pageIndex);

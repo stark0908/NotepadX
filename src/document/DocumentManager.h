@@ -43,6 +43,9 @@ public:
     [[nodiscard]] int indexOf(std::string_view id) const;
     [[nodiscard]] Document* at(size_t index) const;
 
+    void syncUntitledCounterWithExisting();
+    [[nodiscard]] std::string displayName(const Document* doc) const;
+
 private:
     std::vector<std::unique_ptr<Document>> documents_;
     Document* activeDocument_{nullptr};

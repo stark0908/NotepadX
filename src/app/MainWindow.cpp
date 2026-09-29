@@ -113,7 +113,10 @@ Document* MainWindow::openDocument(std::unique_ptr<Document> doc, std::string_vi
         editor->adapter().setText(content);
     }
 
-    const std::string lang = lexerManager_.detectLanguage(rawDoc->filePath());
+    const std::string lang = (rawDoc->language().empty() || rawDoc->language() == "Plain Text") && !rawDoc->filePath().empty()
+        ? lexerManager_.detectLanguage(rawDoc->filePath())
+        : rawDoc->language();
+    rawDoc->setLanguage(lang);
     lexerManager_.applyLanguage(editor->adapter(), lang, settings_.isDarkTheme());
 
     // Setup search highlight indicator
@@ -125,10 +128,7 @@ Document* MainWindow::openDocument(std::unique_ptr<Document> doc, std::string_vi
 
     editor->setModifiedChangedCallback([this, rawDoc](bool modified) {
         rawDoc->setModified(modified);
-        const int idx = tabBar_.indexOfDocument(rawDoc);
-        if (idx >= 0) {
-            tabBar_.updateTabTitle(idx);
-        }
+        updateAllTabTitles();
         if (docManager_.activeDocument() == rawDoc) {
             updateWindowTitle();
             updateStatusBar();
@@ -159,6 +159,7 @@ Document* MainWindow::openDocument(std::unique_ptr<Document> doc, std::string_vi
     editors_[docId] = std::move(editor);
 
     tabBar_.addTab(rawDoc, edWidget);
+    updateAllTabTitles();
 
     if (!filePath.empty()) {
         fileWatcher_.watch(filePath, [this](const std::string& path) {
@@ -214,11 +215,9 @@ Document* MainWindow::openFile(const std::string& filePath) {
             it->second->adapter().setText(content);
             it->second->setSavePoint();
             const std::string lang = lexerManager_.detectLanguage(targetPath);
+            current->setLanguage(lang);
             lexerManager_.applyLanguage(it->second->adapter(), lang, settings_.isDarkTheme());
-            const int idx = tabBar_.indexOfDocument(current);
-            if (idx >= 0) {
-                tabBar_.updateTabTitle(idx);
-            }
+            updateAllTabTitles();
             updateWindowTitle();
             updateStatusBar();
             fileWatcher_.watch(targetPath, [this](const std::string& p) {
@@ -230,6 +229,7 @@ Document* MainWindow::openFile(const std::string& filePath) {
 
     auto doc = std::make_unique<Document>("", "", targetPath);
     doc->setEncoding(detected.name);
+    doc->setLanguage(lexerManager_.detectLanguage(targetPath));
     return openDocument(std::move(doc), content);
 }
 
@@ -374,12 +374,10 @@ bool MainWindow::saveDocument(Document* doc, const std::string& targetPath) {
     it->second->setSavePoint();
 
     const std::string lang = lexerManager_.detectLanguage(targetPath);
+    doc->setLanguage(lang);
     lexerManager_.applyLanguage(it->second->adapter(), lang, settings_.isDarkTheme());
 
-    const int idx = tabBar_.indexOfDocument(doc);
-    if (idx >= 0) {
-        tabBar_.updateTabTitle(idx);
-    }
+    updateAllTabTitles();
     updateWindowTitle();
     updateStatusBar();
 
@@ -528,6 +526,7 @@ bool MainWindow::closeTab(int pageIndex) {
     tabBar_.removeTab(pageIndex);
     editors_.erase(docId);
     docManager_.removeDocument(docId);
+    updateAllTabTitles();
 
     if (tabBar_.count() == 0) {
         newTab();
@@ -605,6 +604,16 @@ bool MainWindow::reopenClosedTab() {
     return false;
 }
 
+void MainWindow::updateAllTabTitles() {
+    const int count = tabBar_.count();
+    for (int i = 0; i < count; ++i) {
+        Document* doc = tabBar_.documentAt(i);
+        if (doc) {
+            tabBar_.updateTabTitle(i, docManager_.displayName(doc), doc->filePath());
+        }
+    }
+}
+
 void MainWindow::saveDocumentToStore(const std::string& docId) {
     auto it = editors_.find(docId);
     if (it != editors_.end()) {
@@ -632,6 +641,7 @@ void MainWindow::saveCurrentSession() {
         tab.title = doc->title();
         tab.filePath = doc->filePath();
         tab.isModified = doc->isModified();
+        tab.language = doc->language();
 
         auto it = editors_.find(doc->id());
         if (it != editors_.end()) {
@@ -659,6 +669,7 @@ void MainWindow::restoreSession() {
 
     for (const auto& tab : state.tabs) {
         auto doc = std::make_unique<Document>(tab.id, tab.title, tab.filePath);
+        doc->setLanguage(tab.language);
         std::string content;
         if (doc->isUnnamed()) {
             content = docStore_.loadDocumentContent(doc->id());
@@ -676,12 +687,18 @@ void MainWindow::restoreSession() {
             if (auto* ed = editors_[created->id()].get()) {
                 ed->adapter().setCurrentPos(tab.cursorPosition);
                 ed->adapter().setFirstVisibleLine(tab.scrollLine);
+                if (!tab.language.empty()) {
+                    lexerManager_.applyLanguage(ed->adapter(), tab.language, settings_.isDarkTheme());
+                }
                 if (!tab.isModified) {
                     ed->setSavePoint();
                 }
             }
         }
     }
+
+    docManager_.syncUntitledCounterWithExisting();
+    updateAllTabTitles();
 
     if (tabBar_.count() == 0) {
         newTab();
@@ -712,7 +729,7 @@ void MainWindow::updateWindowTitle() {
         gtk_window_set_title(GTK_WINDOW(window_), "NotepadX");
         return;
     }
-    std::string title = doc->displayName() + " - NotepadX";
+    std::string title = docManager_.displayName(doc) + " - NotepadX";
     gtk_window_set_title(GTK_WINDOW(window_), title.c_str());
 }
 
@@ -1198,6 +1215,9 @@ void MainWindow::toggleTheme() {
 }
 
 void MainWindow::setLanguage(const std::string& lang) {
+    if (Document* doc = activeDocument()) {
+        doc->setLanguage(lang);
+    }
     if (auto* ed = activeEditor()) {
         lexerManager_.applyLanguage(ed->adapter(), lang, settings_.isDarkTheme());
         statusBar_.updateLanguage(lang);
@@ -1269,7 +1289,7 @@ void MainWindow::updateStatusBar() {
 
     Document* doc = activeDocument();
     if (doc) {
-        statusBar_.updateLanguage(lexerManager_.detectLanguage(doc->filePath()));
+        statusBar_.updateLanguage(doc->language());
         statusBar_.updateEncoding(doc->encoding());
     } else {
         statusBar_.updateEncoding("UTF-8");

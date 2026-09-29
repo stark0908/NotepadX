@@ -55,6 +55,7 @@ public:
     void closeOtherTabs(int keepIndex);
     void closeAllTabs();
     bool reopenClosedTab();
+    void updateAllTabTitles();
 
     void showFindBar(bool replaceMode = false);
     void hideFindBar();
