@@ -20,8 +20,8 @@ public:
     Editor(const Editor&) = delete;
     Editor& operator=(const Editor&) = delete;
 
-    Editor(Editor&&) noexcept = default;
-    Editor& operator=(Editor&&) noexcept = default;
+    Editor(Editor&&) = delete;
+    Editor& operator=(Editor&&) = delete;
 
     [[nodiscard]] GtkWidget* widget() const noexcept { return adapter_.widget(); }
     [[nodiscard]] ScintillaAdapter& adapter() noexcept { return adapter_; }

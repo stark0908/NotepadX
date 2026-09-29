@@ -8,6 +8,10 @@ namespace notepadx {
 ScintillaAdapter::ScintillaAdapter()
     : widget_(scintilla_new()) {
     g_signal_connect(widget_, SCINTILLA_NOTIFY, G_CALLBACK(onNotification), this);
+    g_signal_connect(widget_, "destroy", G_CALLBACK(+[](GtkWidget*, gpointer userData) {
+        auto* self = static_cast<ScintillaAdapter*>(userData);
+        self->widget_ = nullptr;
+    }), this);
 
     send(SCI_SETCODEPAGE, SC_CP_UTF8);
     send(SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER);
@@ -30,9 +34,13 @@ ScintillaAdapter::ScintillaAdapter()
 }
 
 ScintillaAdapter::~ScintillaAdapter() {
-    if (widget_ && !gtk_widget_get_parent(widget_)) {
-        g_object_ref_sink(widget_);
-        g_object_unref(widget_);
+    if (widget_) {
+        g_signal_handlers_disconnect_by_data(widget_, this);
+        if (g_object_is_floating(widget_)) {
+            g_object_ref_sink(widget_);
+            g_object_unref(widget_);
+        }
+        widget_ = nullptr;
     }
 }
 

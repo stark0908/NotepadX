@@ -20,8 +20,8 @@ public:
     ScintillaAdapter(const ScintillaAdapter&) = delete;
     ScintillaAdapter& operator=(const ScintillaAdapter&) = delete;
 
-    ScintillaAdapter(ScintillaAdapter&&) noexcept = default;
-    ScintillaAdapter& operator=(ScintillaAdapter&&) noexcept = default;
+    ScintillaAdapter(ScintillaAdapter&&) = delete;
+    ScintillaAdapter& operator=(ScintillaAdapter&&) = delete;
 
     [[nodiscard]] GtkWidget* widget() const noexcept { return widget_; }
 
