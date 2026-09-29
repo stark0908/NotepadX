@@ -56,8 +56,9 @@ std::string ScintillaAdapter::getText() const {
     if (len == 0) {
         return {};
     }
-    std::string buffer(len, '\0');
+    std::string buffer(len + 1, '\0');
     send(SCI_GETTEXT, len + 1, reinterpret_cast<sptr_t>(buffer.data()));
+    buffer.resize(len);
     return buffer;
 }
 
