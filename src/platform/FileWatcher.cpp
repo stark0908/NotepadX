@@ -48,7 +48,7 @@ FileWatcher& FileWatcher::operator=(FileWatcher&& other) noexcept {
             g_source_remove(watchSourceId_);
         }
         if (ioChannel_) {
-            g_io_channel_unref(static_cast<GIOChannel*>(ioChannel_));
+            g_io_channel_unref(ioChannel_);
         }
         if (inotifyFd_ >= 0) {
             close(inotifyFd_);
@@ -93,7 +93,15 @@ bool FileWatcher::watch(const std::string& filePath, ChangeCallback cb) {
         return false;
     }
 
-    unwatch(filePath);
+    auto it = pathToWd_.find(filePath);
+    if (it != pathToWd_.end()) {
+        const int oldWd = it->second;
+        if (inotifyFd_ >= 0) {
+            inotify_rm_watch(inotifyFd_, oldWd);
+        }
+        wdToPath_.erase(oldWd);
+        pathToWd_.erase(it);
+    }
 
     const int wd = inotify_add_watch(
         inotifyFd_,
@@ -149,7 +157,7 @@ bool FileWatcher::isWatching(const std::string& filePath) const {
     return pathToWd_.contains(filePath);
 }
 
-gboolean FileWatcher::onIoCallback([[maybe_unused]] void* channel,
+gboolean FileWatcher::onIoCallback([[maybe_unused]] GIOChannel* channel,
                                   int condition,
                                   void* userData) {
     auto* self = static_cast<FileWatcher*>(userData);
@@ -184,9 +192,14 @@ void FileWatcher::processInotifyEvents() {
             if (it != wdToPath_.end()) {
                 const std::string path = it->second;
 
+                if (event->mask & IN_IGNORED) {
+                    pathToWd_.erase(path);
+                    wdToPath_.erase(event->wd);
+                }
+
                 if (ignoredPaths_.contains(path)) {
                     ignoredPaths_.erase(path);
-                } else {
+                } else if (!(event->mask & IN_IGNORED)) {
                     auto cbIt = callbacks_.find(path);
                     if (cbIt != callbacks_.end() && cbIt->second) {
                         cbIt->second(path);

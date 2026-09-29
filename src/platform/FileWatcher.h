@@ -31,10 +31,10 @@ public:
 private:
     void initInotify();
     void processInotifyEvents();
-    static gboolean onIoCallback(void* channel, int condition, void* userData);
+    static gboolean onIoCallback(GIOChannel* channel, int condition, void* userData);
 
     int inotifyFd_{-1};
-    void* ioChannel_{nullptr};
+    GIOChannel* ioChannel_{nullptr};
     unsigned int watchSourceId_{0};
 
     std::unordered_map<std::string, int> pathToWd_;
