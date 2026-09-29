@@ -5,12 +5,23 @@ namespace notepadx {
 namespace {
 
 GtkWidget* createMenuItem(const char* label, const char* accel, std::function<void()> cb) {
-    std::string text = label;
+    GtkWidget* item = gtk_menu_item_new();
+    GtkWidget* box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 32);
+
+    GtkWidget* lbl = gtk_label_new(label);
+    gtk_label_set_xalign(GTK_LABEL(lbl), 0.0);
+    gtk_box_pack_start(GTK_BOX(box), lbl, TRUE, TRUE, 0);
+
     if (accel && *accel) {
-        text += "\t\t";
-        text += accel;
+        GtkWidget* accLbl = gtk_label_new(accel);
+        gtk_label_set_xalign(GTK_LABEL(accLbl), 1.0);
+        GtkStyleContext* ctx = gtk_widget_get_style_context(accLbl);
+        gtk_style_context_add_class(ctx, "dim-label");
+        gtk_box_pack_end(GTK_BOX(box), accLbl, FALSE, FALSE, 0);
     }
-    GtkWidget* item = gtk_menu_item_new_with_label(text.c_str());
+
+    gtk_container_add(GTK_CONTAINER(item), box);
+
     if (cb) {
         auto* cbPtr = new std::function<void()>(std::move(cb));
         g_signal_connect_data(item, "activate", G_CALLBACK(+[](GtkMenuItem* /*i*/, gpointer data) {
