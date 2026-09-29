@@ -20,7 +20,7 @@ TabBar::TabBar()
             GtkWidget* page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(self->notebook_), i);
             auto it = std::find_if(self->tabs_.begin(), self->tabs_.end(),
                                    [self, page](const TabData& td) {
-                                       return self->pageIndexOf(page) >= 0 && td.tabBox == gtk_notebook_get_tab_label(GTK_NOTEBOOK(self->notebook_), page);
+                                       return td.tabBox == gtk_notebook_get_tab_label(GTK_NOTEBOOK(self->notebook_), page);
                                    });
             if (it != self->tabs_.end()) {
                 reordered.push_back(*it);
@@ -226,8 +226,10 @@ void TabBar::showContextMenu(GdkEventButton* event, int pageIndex) {
     GtkWidget* menu = gtk_menu_new();
 
     GtkWidget* itemClose = gtk_menu_item_new_with_label("Close Tab");
-    g_signal_connect_swapped(itemClose, "activate", G_CALLBACK(+[](TabBar* self, int idx) {
-        if (self->tabCloseCb_ && idx < self->count()) {
+    g_signal_connect(itemClose, "activate", G_CALLBACK(+[](GtkMenuItem* item, gpointer userData) {
+        auto* self = static_cast<TabBar*>(userData);
+        const int idx = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "tab-index"));
+        if (self->tabCloseCb_ && idx >= 0 && idx < self->count()) {
             self->tabCloseCb_(idx, self->documentAt(idx));
         }
     }), this);
