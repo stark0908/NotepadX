@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -226,6 +227,13 @@ bool SingleInstance::processPendingConnection(int timeoutMs) {
     if (clientFd < 0) {
         return false;
     }
+
+    // Protect UI main loop from blocking on stalled or slow clients
+    struct timeval tv {};
+    tv.tv_sec = 0;
+    tv.tv_usec = 500000; // 500ms timeout
+    setsockopt(clientFd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    setsockopt(clientFd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
     uint32_t len = 0;
     ssize_t bytesRead = read(clientFd, &len, sizeof(len));
