@@ -90,12 +90,11 @@ void ScintillaAdapter::updateLineNumberWidth() {
         count /= 10;
         ++digits;
     }
-    digits = std::max(digits, 3); // Minimum 3 digits for stable layout
-    std::string sample(static_cast<size_t>(digits), '9');
-    sample.push_back('_'); // Extra margin padding
+    digits = std::max(digits, 1);
+    const std::string sample(static_cast<size_t>(digits), '9');
 
     const sptr_t pixelWidth = send(SCI_TEXTWIDTH, STYLE_LINENUMBER, reinterpret_cast<sptr_t>(sample.c_str()));
-    send(SCI_SETMARGINWIDTHN, 0, pixelWidth);
+    send(SCI_SETMARGINWIDTHN, 0, pixelWidth + 4);
 }
 
 void ScintillaAdapter::setWordWrap(bool enable) {

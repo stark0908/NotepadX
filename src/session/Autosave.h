@@ -14,7 +14,7 @@ public:
     using TimerScheduler = std::function<void(uint32_t delayMs, std::function<void()> onTimeout)>;
 
     explicit Autosave(SaveCallback saveCb,
-                     uint32_t delayMs = 2000,
+                     uint32_t delayMs = 500,
                      TimerScheduler timerScheduler = nullptr);
     ~Autosave() = default;
 

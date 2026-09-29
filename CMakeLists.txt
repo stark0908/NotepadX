@@ -100,6 +100,7 @@ enable_testing()
 
 add_executable(notepadx_tests
     tests/test_document.cpp
+    tests/test_editor.cpp
     tests/test_persistence.cpp
     tests/test_syntax.cpp
     tests/test_search.cpp
@@ -110,6 +111,7 @@ add_executable(notepadx_tests
     src/document/Document.cpp
     src/document/DocumentManager.cpp
     src/document/DocumentStore.cpp
+    src/editor/Editor.cpp
     src/editor/EditorConfig.cpp
     src/editor/ScintillaAdapter.cpp
     src/ipc/SingleInstance.cpp

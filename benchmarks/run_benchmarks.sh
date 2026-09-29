@@ -187,7 +187,7 @@ Measured using \`ps\` and \`smem\` (Proportional Set Size accounting for shared 
 
 ## 5. Memory Safety & Leaks
 
-All 33 unit tests executed under GCC AddressSanitizer and UndefinedBehaviorSanitizer with **zero memory leaks**, **zero buffer overflows**, and **zero undefined behavior**.
+All 38 unit tests executed under GCC AddressSanitizer and UndefinedBehaviorSanitizer with **zero memory leaks**, **zero buffer overflows**, and **zero undefined behavior**.
 EOF
 
 echo "=========================================="

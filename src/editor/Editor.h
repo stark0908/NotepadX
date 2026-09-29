@@ -15,7 +15,7 @@ public:
     using UpdateUiCallback = std::function<void()>;
 
     explicit Editor(const EditorConfig& config = EditorConfig::createDefault());
-    ~Editor() = default;
+    ~Editor();
 
     Editor(const Editor&) = delete;
     Editor& operator=(const Editor&) = delete;
@@ -33,6 +33,10 @@ public:
     [[nodiscard]] bool isModified() const;
     void setSavePoint();
 
+    void undo();
+    void redo();
+    void sealUndoAction();
+
     using MarginClickCallback = std::function<void(int line, int margin)>;
 
     void setContentChangedCallback(ContentChangedCallback cb);
@@ -42,6 +46,8 @@ public:
 
 private:
     void handleNotification(const SCNotification* scn);
+    void cancelUndoTimer();
+    void scheduleUndoTimer();
 
     ScintillaAdapter adapter_;
     EditorConfig config_;
@@ -49,6 +55,7 @@ private:
     ModifiedChangedCallback modifiedChangedCb_{nullptr};
     UpdateUiCallback updateUiCb_{nullptr};
     MarginClickCallback marginClickCb_{nullptr};
+    guint undoTimeoutId_{0};
     bool isModified_{false};
 };
 

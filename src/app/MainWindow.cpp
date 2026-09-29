@@ -11,7 +11,7 @@ namespace notepadx {
 MainWindow::MainWindow(GtkApplication* app)
     : window_(gtk_application_window_new(app)),
       mainBox_(gtk_box_new(GTK_ORIENTATION_VERTICAL, 0)),
-      autosave_([this](const std::string& docId) { saveDocumentToStore(docId); }, 2000) {
+      autosave_([this](const std::string& docId) { saveDocumentToStore(docId); }, 500) {
     settings_.loadFromFile();
     setupMenuBar();
 
@@ -1140,11 +1140,11 @@ void MainWindow::setupMenuBar() {
 }
 
 void MainWindow::undo() {
-    if (auto* ed = activeEditor()) ed->adapter().undo();
+    if (auto* ed = activeEditor()) ed->undo();
 }
 
 void MainWindow::redo() {
-    if (auto* ed = activeEditor()) ed->adapter().redo();
+    if (auto* ed = activeEditor()) ed->redo();
 }
 
 void MainWindow::cut() {
