@@ -44,6 +44,10 @@ TEST(RegexEngineTest, RegexCaptureGroupReplacement) {
 
     std::string rep2 = re.expandReplacement(text, matches[1], "$1: [$2 px]");
     EXPECT_EQ(rep2, "height: [200 px]");
+
+    // Full match ($0) and literal preservation of out-of-bounds group ($3)
+    std::string rep3 = re.expandReplacement(text, matches[0], "[$0] and $3");
+    EXPECT_EQ(rep3, "[width = 100] and $3");
 }
 
 TEST(SearchEngineTest, FindNextAndPreviousWithWrap) {

@@ -182,8 +182,10 @@ std::string RegexEngine::expandReplacement(std::string_view subject,
                     if (gStart != PCRE2_UNSET && gEnd != PCRE2_UNSET && gEnd <= subject.size()) {
                         result.append(subject.substr(gStart, gEnd - gStart));
                     }
+                    ++i;
+                    continue;
                 }
-                ++i;
+                result.push_back(c);
                 continue;
             }
             if (next == '0' || next == '&') {
