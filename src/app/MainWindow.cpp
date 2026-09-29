@@ -17,6 +17,18 @@ MainWindow::MainWindow(GtkApplication* app)
 
     gtk_window_set_title(GTK_WINDOW(window_), "NotepadX");
     gtk_window_set_default_size(GTK_WINDOW(window_), 900, 600);
+    gtk_window_set_icon_name(GTK_WINDOW(window_), "notepadx");
+    gtk_window_set_default_icon_name("notepadx");
+    for (const char* iconPath : {"data/icons/hicolor/scalable/apps/notepadx.svg",
+                                "../data/icons/hicolor/scalable/apps/notepadx.svg"}) {
+        if (std::filesystem::exists(iconPath)) {
+            GError* err = nullptr;
+            if (gtk_window_set_icon_from_file(GTK_WINDOW(window_), iconPath, &err)) {
+                break;
+            }
+            g_clear_error(&err);
+        }
+    }
 
     gtk_container_add(GTK_CONTAINER(window_), mainBox_);
     gtk_box_pack_start(GTK_BOX(mainBox_), menuBar_->widget(), FALSE, FALSE, 0);
@@ -149,7 +161,7 @@ Document* MainWindow::openDocument(std::unique_ptr<Document> doc, std::string_vi
     });
 
     editor->setMarginClickCallback([this](int line, int margin) {
-        if (margin == 1) {
+        if (margin == 0 || margin == 1) {
             toggleBookmark(line);
         }
     });

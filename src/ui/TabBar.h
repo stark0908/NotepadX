@@ -53,9 +53,11 @@ private:
 
     GtkWidget* createTabHeader(Document* doc, TabData& data);
     void showContextMenu(GdkEventButton* event, int pageIndex);
+    void showTabListMenu(GtkWidget* anchorBtn);
 
     static void onSwitchPage(GtkNotebook* notebook, GtkWidget* page, guint pageNum, gpointer userData);
     static gboolean onTabButtonPress(GtkWidget* widget, GdkEventButton* event, gpointer userData);
+    static gboolean onNotebookScroll(GtkWidget* widget, GdkEventScroll* event, gpointer userData);
 
     GtkWidget* notebook_{nullptr};
     std::vector<TabData> tabs_;
@@ -66,6 +68,8 @@ private:
     TabCloseAllCallback tabCloseAllCb_{nullptr};
     NewTabCallback newTabCb_{nullptr};
     bool suppressSwitchSignal_{false};
+    double scrollAccumulator_{0.0};
+    uint32_t lastScrollTime_{0};
 };
 
 } // namespace notepadx

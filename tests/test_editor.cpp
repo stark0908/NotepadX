@@ -15,24 +15,36 @@ protected:
     }
 };
 
-TEST_F(EditorTest, LineNumberMarginIsSlimForSingleDigit) {
+TEST_F(EditorTest, LineNumberMarginDefaultsToTwoDigitsWithoutShifting) {
     EditorConfig cfg = EditorConfig::createDefault();
     cfg.showLineNumbers = true;
     Editor ed(cfg);
 
-    // Initial 1 line document should have a slim margin (<= 20px, not the old 35-40px)
+    // Initial 1 line document defaults to 2-digit width on margin 0 (<= 25px)
     const sptr_t width1 = ed.adapter().send(SCI_GETMARGINWIDTHN, 0);
     EXPECT_GT(width1, 0);
-    EXPECT_LE(width1, 20);
+    EXPECT_LE(width1, 25);
 
-    // Adding 15 lines expands the margin to accommodate 2 digits
+    // Bookmark margin (margin 1) has 0 width (no wasted padding strip)
+    EXPECT_EQ(ed.adapter().send(SCI_GETMARGINWIDTHN, 1), 0);
+
+    // 15 lines still uses 2 digits: width stays exactly the same (no jitter up to 99)
     std::string multiLines;
     for (int i = 1; i <= 15; ++i) {
         multiLines += "Line " + std::to_string(i) + "\n";
     }
     ed.adapter().setText(multiLines);
     const sptr_t width15 = ed.adapter().send(SCI_GETMARGINWIDTHN, 0);
-    EXPECT_GT(width15, width1);
+    EXPECT_EQ(width15, width1);
+
+    // Adding 105 lines expands to 3 digits
+    std::string hundredLines;
+    for (int i = 1; i <= 105; ++i) {
+        hundredLines += "Line " + std::to_string(i) + "\n";
+    }
+    ed.adapter().setText(hundredLines);
+    const sptr_t width105 = ed.adapter().send(SCI_GETMARGINWIDTHN, 0);
+    EXPECT_GT(width105, width1);
 }
 
 TEST_F(EditorTest, SealUndoActionCreatesAtomicSteps) {

@@ -9,6 +9,32 @@ TabBar::TabBar()
     gtk_notebook_set_scrollable(GTK_NOTEBOOK(notebook_), TRUE);
     gtk_notebook_set_show_border(GTK_NOTEBOOK(notebook_), FALSE);
 
+    gtk_widget_add_events(notebook_, GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
+    g_signal_connect(notebook_, "scroll-event", G_CALLBACK(onNotebookScroll), this);
+
+    // Overflow "All Tabs" dropdown menu button at the right end of the tab bar
+    GtkWidget* actionBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    gtk_widget_set_margin_start(actionBox, 6);
+    gtk_widget_set_margin_end(actionBox, 8);
+    gtk_widget_set_margin_top(actionBox, 2);
+    gtk_widget_set_margin_bottom(actionBox, 2);
+
+    GtkWidget* listBtn = gtk_button_new();
+    GtkWidget* listImg = gtk_image_new_from_icon_name("pan-down-symbolic", GTK_ICON_SIZE_MENU);
+    gtk_button_set_image(GTK_BUTTON(listBtn), listImg);
+    gtk_button_set_relief(GTK_BUTTON(listBtn), GTK_RELIEF_NONE);
+    gtk_widget_set_focus_on_click(listBtn, FALSE);
+    gtk_widget_set_size_request(listBtn, 24, 24);
+    gtk_widget_set_valign(listBtn, GTK_ALIGN_CENTER);
+    gtk_widget_set_tooltip_text(listBtn, "List All Open Tabs");
+    g_signal_connect(listBtn, "clicked", G_CALLBACK(+[](GtkButton* btn, gpointer userData) {
+        auto* self = static_cast<TabBar*>(userData);
+        self->showTabListMenu(GTK_WIDGET(btn));
+    }), this);
+    gtk_box_pack_start(GTK_BOX(actionBox), listBtn, FALSE, FALSE, 0);
+    gtk_widget_show_all(actionBox);
+    gtk_notebook_set_action_widget(GTK_NOTEBOOK(notebook_), actionBox, GTK_PACK_END);
+
     g_signal_connect(notebook_, "switch-page", G_CALLBACK(onSwitchPage), this);
     g_signal_connect(notebook_, "page-reordered", G_CALLBACK(+[](GtkNotebook* /*nb*/, GtkWidget* /*child*/, guint /*pageNum*/, gpointer userData) {
         auto* self = static_cast<TabBar*>(userData);
@@ -73,6 +99,8 @@ GtkWidget* TabBar::createTabHeader(Document* doc, TabData& data) {
         }
     }), nullptr);
 
+    gtk_widget_add_events(eventBox, GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
+    g_signal_connect(eventBox, "scroll-event", G_CALLBACK(onNotebookScroll), this);
     g_signal_connect(eventBox, "button-press-event", G_CALLBACK(onTabButtonPress), this);
 
     gtk_widget_show_all(eventBox);
@@ -262,6 +290,83 @@ void TabBar::showContextMenu(GdkEventButton* event, int pageIndex) {
 
     gtk_widget_show_all(menu);
     gtk_menu_popup_at_pointer(GTK_MENU(menu), reinterpret_cast<const GdkEvent*>(event));
+}
+
+gboolean TabBar::onNotebookScroll(GtkWidget* /*widget*/, GdkEventScroll* event, gpointer userData) {
+    auto* self = static_cast<TabBar*>(userData);
+    if (!self || self->count() <= 1) {
+        return FALSE;
+    }
+
+    const uint32_t now = event->time;
+    // Debounce rapid continuous events: require at least 80 ms between tab switches
+    if (now != 0 && self->lastScrollTime_ != 0 && (now - self->lastScrollTime_) < 80) {
+        return TRUE;
+    }
+
+    int delta = 0;
+    if (event->direction == GDK_SCROLL_UP || event->direction == GDK_SCROLL_LEFT) {
+        delta = -1;
+    } else if (event->direction == GDK_SCROLL_DOWN || event->direction == GDK_SCROLL_RIGHT) {
+        delta = 1;
+    } else if (event->direction == GDK_SCROLL_SMOOTH) {
+        double dx = 0.0, dy = 0.0;
+        gdk_event_get_scroll_deltas(reinterpret_cast<GdkEvent*>(event), &dx, &dy);
+        self->scrollAccumulator_ += (dy + dx);
+        if (self->scrollAccumulator_ <= -0.8) {
+            delta = -1;
+            self->scrollAccumulator_ = 0.0;
+        } else if (self->scrollAccumulator_ >= 0.8) {
+            delta = 1;
+            self->scrollAccumulator_ = 0.0;
+        }
+    }
+
+    if (delta != 0) {
+        self->lastScrollTime_ = now;
+        const int current = self->activeIndex();
+        const int total = self->count();
+        const int next = (current + delta + total) % total;
+        self->setActiveIndex(next);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+void TabBar::showTabListMenu(GtkWidget* anchorBtn) {
+    if (tabs_.empty()) {
+        return;
+    }
+    GtkWidget* menu = gtk_menu_new();
+    const int active = activeIndex();
+
+    for (size_t i = 0; i < tabs_.size(); ++i) {
+        const auto& tab = tabs_[i];
+        if (!tab.doc) continue;
+
+        std::string title = tab.doc->displayName();
+        if (static_cast<int>(i) == active) {
+            title = "✓ " + title;
+        }
+
+        GtkWidget* item = gtk_menu_item_new_with_label(title.c_str());
+        if (!tab.doc->filePath().empty()) {
+            gtk_widget_set_tooltip_text(item, tab.doc->filePath().c_str());
+        }
+
+        const int pageIdx = static_cast<int>(i);
+        g_object_set_data(G_OBJECT(item), "tab-index", GINT_TO_POINTER(pageIdx));
+        g_signal_connect(item, "activate", G_CALLBACK(+[](GtkMenuItem* mItem, gpointer userData) {
+            auto* self = static_cast<TabBar*>(userData);
+            const int idx = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(mItem), "tab-index"));
+            self->setActiveIndex(idx);
+        }), this);
+
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+    }
+
+    gtk_widget_show_all(menu);
+    gtk_menu_popup_at_widget(GTK_MENU(menu), anchorBtn, GDK_GRAVITY_SOUTH_EAST, GDK_GRAVITY_NORTH_EAST, nullptr);
 }
 
 } // namespace notepadx

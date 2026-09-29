@@ -16,14 +16,14 @@ ScintillaAdapter::ScintillaAdapter()
     send(SCI_SETCODEPAGE, SC_CP_UTF8);
     send(SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER);
     send(SCI_SETMARGINWIDTHN, 0, 0);
+    send(SCI_SETMARGINSENSITIVEN, 0, 1);
     send(SCI_SETMARGINTYPEN, 1, SC_MARGIN_SYMBOL);
     send(SCI_SETMARGINMASKN, 1, 1 << 1);
-    send(SCI_SETMARGINWIDTHN, 1, 16);
-    send(SCI_SETMARGINSENSITIVEN, 1, 1);
-    send(SCI_MARKERDEFINE, 1, SC_MARK_CIRCLE);
-    send(SCI_MARKERSETBACK, 1, 0x00A0FF);
-    send(SCI_MARKERSETFORE, 1, 0x000000);
+    send(SCI_SETMARGINWIDTHN, 1, 0);
     send(SCI_SETMARGINWIDTHN, 2, 0);
+    send(SCI_MARKERDEFINE, 1, SC_MARK_BACKGROUND);
+    send(SCI_MARKERSETBACK, 1, 0x00A0FF);
+    send(SCI_MARKERSETALPHA, 1, 60);
     send(SCI_SETTABWIDTH, 4);
     send(SCI_SETUSETABS, 0);
     send(SCI_SETTABINDENTS, 1);
@@ -90,7 +90,7 @@ void ScintillaAdapter::updateLineNumberWidth() {
         count /= 10;
         ++digits;
     }
-    digits = std::max(digits, 1);
+    digits = std::max(digits, 2);
     const std::string sample(static_cast<size_t>(digits), '9');
 
     const sptr_t pixelWidth = send(SCI_TEXTWIDTH, STYLE_LINENUMBER, reinterpret_cast<sptr_t>(sample.c_str()));
