@@ -7,17 +7,34 @@ Editor::Editor(const EditorConfig& config)
     adapter_.setNotificationCallback([this](const SCNotification* scn) {
         handleNotification(scn);
     });
-    applyConfig(config_);
-}
-
-void Editor::applyConfig(const EditorConfig& config) {
-    config_ = config;
     adapter_.setFont(config_.fontName, config_.fontSizePt);
     adapter_.setLineNumbers(config_.showLineNumbers);
     adapter_.setWordWrap(config_.wordWrap);
     adapter_.setTabWidth(config_.tabWidth);
     adapter_.setUseTabs(config_.useTabs);
     adapter_.setEolMode(config_.eolMode);
+}
+
+void Editor::applyConfig(const EditorConfig& config) {
+    if (config_.fontName != config.fontName || config_.fontSizePt != config.fontSizePt) {
+        adapter_.setFont(config.fontName, config.fontSizePt);
+    }
+    if (config_.showLineNumbers != config.showLineNumbers) {
+        adapter_.setLineNumbers(config.showLineNumbers);
+    }
+    if (config_.wordWrap != config.wordWrap) {
+        adapter_.setWordWrap(config.wordWrap);
+    }
+    if (config_.tabWidth != config.tabWidth) {
+        adapter_.setTabWidth(config.tabWidth);
+    }
+    if (config_.useTabs != config.useTabs) {
+        adapter_.setUseTabs(config.useTabs);
+    }
+    if (config_.eolMode != config.eolMode) {
+        adapter_.setEolMode(config.eolMode);
+    }
+    config_ = config;
 }
 
 bool Editor::isModified() const {

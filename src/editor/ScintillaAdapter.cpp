@@ -113,7 +113,8 @@ void ScintillaAdapter::setUseTabs(bool useTabs) {
 void ScintillaAdapter::setFont(const std::string& fontName, int sizePt) {
     send(SCI_STYLESETFONT, STYLE_DEFAULT, reinterpret_cast<sptr_t>(fontName.c_str()));
     send(SCI_STYLESETSIZE, STYLE_DEFAULT, sizePt);
-    send(SCI_STYLECLEARALL);
+    send(SCI_STYLESETFONT, STYLE_LINENUMBER, reinterpret_cast<sptr_t>(fontName.c_str()));
+    send(SCI_STYLESETSIZE, STYLE_LINENUMBER, sizePt);
     updateLineNumberWidth();
 }
 
